@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-
+from django.urls import path, include
+from django.shortcuts import redirect
 urlpatterns = [
+    path('', lambda request: redirect('login')),  # הפניה מיידית ל־login
     path('admin/', admin.site.urls),
+    path('', include('app.urls')),  # שם האפליקציה שלך
 ]
