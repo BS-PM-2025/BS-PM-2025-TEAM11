@@ -1,0 +1,108 @@
+<!-- templates/partials/navbar.html -->
+{% load static %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+ .navbar {
+    width: 100%;
+    margin: 20px auto;
+    background-color: #008B8B;
+    color: white;
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+
+    position: sticky;
+    top: 20px;
+    z-index: 999;
+
+    border-radius: 18px;
+
+    /* Stronger pop-out shadow */
+    box-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.3),
+        0 6px 6px rgba(0, 0, 0, 0.22);
+
+    transition: all 0.3s ease-in-out;
+}
+
+
+    .navbar .username {
+        font-weight: 600;
+        font-size: 18px;
+        letter-spacing: 0.5px;
+    }
+
+    .navbar .logo img {
+        height: 48px;
+        margin-top: 4px;
+    }
+
+    .navbar .buttons {
+        display: flex;
+        gap: 20px;
+    }
+
+    .navbar button {
+        background-color: white;
+        color: #008B8B;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        transition: all 0.2s ease-in-out;
+    }
+
+    .navbar button:hover {
+        background-color: #005f5f;
+        color: white;
+        transform: translateY(-1px);
+    }
+    .navbar:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 14px 28px rgba(0, 0, 0, 0.25),
+        0 10px 10px rgba(0, 0, 0, 0.22);
+}
+
+</style>
+
+
+<div class="navbar">
+    <div class="username">
+       <span>Welcome, {{ request.user.first_name }} {{ request.user.last_name }}</span>
+
+    </div>
+    <div class="logo">
+    <img src="{% static 'images/sce-logo.png' %}" alt="SCE Logo">
+    </div>
+
+    <div class="buttons">
+        {% if request.user.role == 'academic' %}
+    <a href="{% url 'academic_request_history' %}">
+        <button><i class="fas fa-folder-open"></i> Requests</button>
+    </a>
+    {% elif request.user.role == 'secretary' %}
+    <a href="#">
+        <button disabled><i class="fas fa-folder-open"></i> Requests</button>
+    </a>
+    {% elif request.user.role == 'student' %}
+    <a href="#">
+        <button disabled><i class="fas fa-folder-open"></i> Requests</button>
+    </a>
+        {% endif %}
+
+
+       <form method="post" action="#">
+          <button type="submit">
+             <i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+
+       </form>
+    </div>
+</div>

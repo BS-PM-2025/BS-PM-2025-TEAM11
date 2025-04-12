@@ -4,6 +4,11 @@ from django.shortcuts import render
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
+from .models import Request
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+
+
 from .models import User
 
 
@@ -55,3 +60,21 @@ def secretary_dashboard(request):
 
 def academic_dashboard(request):
     return render(request, 'academic_dashboard.html')
+def academic_request_history_view(request):
+    return render(request, 'academic_request_history.html')
+
+@login_required
+def categorized_requests_api(request):
+    status = request.GET.get('status')
+
+    if status not in ['pending', 'in_progress', 'accepted', 'rejected']:
+        return JsonResponse({'error': 'Invalid status'}, status=400)
+
+    user = request.user
+
+    requests = Request.objects.filter(
+        assigned_to=user,
+        status=status
+    ).values('id', 'title', 'submitted_at', 'status')
+
+    return JsonResponse(list(requests), safe=False)
