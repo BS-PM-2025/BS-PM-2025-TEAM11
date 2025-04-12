@@ -88,8 +88,8 @@
         <button><i class="fas fa-folder-open"></i> Requests</button>
     </a>
     {% elif request.user.role == 'secretary' %}
-    <a href="#">
-        <button disabled><i class="fas fa-folder-open"></i> Requests</button>
+    <a href="{% url 'secretary_request_history' %}">
+        <button ><i class="fas fa-folder-open"></i> Requests</button>
     </a>
     {% elif request.user.role == 'student' %}
     <a href="#">

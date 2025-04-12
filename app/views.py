@@ -62,6 +62,8 @@ def academic_dashboard(request):
     return render(request, 'academic_dashboard.html')
 def academic_request_history_view(request):
     return render(request, 'academic_request_history.html')
+def secretary_request_history_view(request):
+    return render(request, 'secretary_request_history.html')
 
 @login_required
 def categorized_requests_api(request):

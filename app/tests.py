@@ -95,6 +95,17 @@ class RequestAPITests(TestCase):
             role='academic'
         )
         self.academic = AcademicStaff.objects.create(user=self.academic_user)
+        self.secretary_user = User.objects.create_user(
+            username='secretary1',
+            password='pass123456',
+            id_number='333333333',
+            email='secretary@test.com',
+            phone='0509999999',
+            department='ניהול',
+            date_start='2020-01-01',
+            role='secretary'
+        )
+        self.secretary = Secretary.objects.create(user=self.secretary_user)
 
         # Create requests assigned to academic
         Request.objects.create(
@@ -131,3 +142,8 @@ class RequestAPITests(TestCase):
         response = self.client.get('/api/requests/?status=pending')
         self.assertEqual(response.status_code, 302)  # expect redirect to login
         self.assertIn('/login/', response.url)  # optional: check it's a redirect to login
+
+    def test_secretary_can_view_categorized_requests(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.get('/api/requests/?status=pending')
+        self.assertEqual(response.status_code, 200)
