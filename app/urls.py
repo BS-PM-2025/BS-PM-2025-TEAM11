@@ -12,6 +12,7 @@ urlpatterns = [
     path('dashboard/academic/requests/history/', views.academic_request_history_view, name='academic_request_history'),
     path('dashboard/secretary/requests/history/', views.secretary_request_history_view, name='secretary_request_history'),
     path('api/requests/', categorized_requests_api, name='categorized_requests_api'),
-
+    path('api/requests/secretary/', views.secretary_requests_api, name='secretary_requests_api'),
+    path('api/requests/academic/', views.academic_requests_api, name='academic_requests_api'),
 
 ]

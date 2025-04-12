@@ -1,3 +1,112 @@
+{% include 'partials/navbar.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Academic Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
 
- {% include 'partials/navbar.html' %}
-<h1>Welcome academic</h1>
+    h1 {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    .request-button {
+      background-color: #A0CCCC;
+      color: white;
+      border-color: #008B8B;
+      padding: 14px 28px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .request-button:hover {
+      background-color: #126173;
+    }
+
+    #request-list {
+      width: 80%;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    #request-list div {
+      margin-bottom: 20px;
+    }
+
+    hr {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Academic Dashboard</h1>
+
+  <div class="main-content">
+    <button class="request-button" id="my-requests-button">My Requests</button>
+
+    <div id="request-list">
+      <p>Click the button above to load your requests.</p>
+    </div>
+  </div>
+
+  <script>
+    function loadAcademicRequests() {
+      fetch(`/api/requests/academic/?status=pending`)  // Use a valid status (e.g., pending)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not OK');
+          }
+          return response.json();
+        })
+        .then(data => {
+          const container = document.getElementById('request-list');
+          container.innerHTML = '';
+
+          if (data.length === 0) {
+            container.innerHTML = '<p>No requests found.</p>';
+          } else {
+            data.forEach(req => {
+              const div = document.createElement('div');
+              div.innerHTML = `
+                <hr>
+                <strong>${req.title}</strong> - ${req.status}<br>
+                ${req.description}<br>
+                <small>${new Date(req.submitted_at).toLocaleString()}</small>
+              `;
+              container.appendChild(div);
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Error loading requests:', error);
+          document.getElementById('request-list').innerHTML = `<p style="color:red;">Error loading requests: ${error}</p>`;
+        });
+    }
+
+    document.getElementById('my-requests-button').addEventListener('click', loadAcademicRequests);
+  </script>
+</body>
+</html>
