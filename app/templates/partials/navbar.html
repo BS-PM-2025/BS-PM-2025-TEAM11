@@ -92,9 +92,10 @@
         <button ><i class="fas fa-folder-open"></i> Requests</button>
     </a>
     {% elif request.user.role == 'student' %}
-    <a href="#">
-        <button disabled><i class="fas fa-folder-open"></i> Requests</button>
-    </a>
+  <a href="{% url 'student_request_history' %}">
+    <button><i class="fas fa-folder-open"></i> Requests</button>
+</a>
+
         {% endif %}
 
 

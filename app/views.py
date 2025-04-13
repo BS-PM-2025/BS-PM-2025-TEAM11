@@ -8,6 +8,7 @@ from .models import Request
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
+from app.models import Request, Student
 
 from .models import User
 
@@ -80,3 +81,19 @@ def categorized_requests_api(request):
     ).values('id', 'title', 'submitted_at', 'status')
 
     return JsonResponse(list(requests), safe=False)
+
+
+
+@login_required
+def student_dashboard(request):
+    request_types = dict(Request.REQUEST_TYPES)
+    return render(request, 'student_dashboard.html', {'request_types': request_types})
+
+@login_required
+def student_request_history_view(request):
+    try:
+        student_profile = Student.objects.get(user=request.user)
+        requests = Request.objects.filter(student=student_profile).order_by('-submitted_at')
+    except Student.DoesNotExist:
+        requests = []
+    return render(request, 'student_request_history.html', {'requests': requests})

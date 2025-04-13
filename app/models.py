@@ -63,10 +63,25 @@ class Request(models.Model):
         ('accepted', 'Accepted'),
         ('rejected', 'Rejected'),
     ]
+    REQUEST_TYPES = [
+        ('other', 'Other'),
+        ('iron_swords', 'Alternative Assignment for Iron Swords'),
+        ('delay_submission', 'Assignment Submission Extension'),
+        ('course_unblock', 'Course Unblocking'),
+        ('cancel_hw_percent', 'Cancel Homework Percentage in Final Grade'),
+        ('prerequisite_exemption', 'Prerequisite Exemption'),
+        ('increase_credits', 'Credit Limit Increase'),
+        ('registration_exemption', 'Exemption from Course Registration'),
+        ('special_exam', 'Special Exam Request'),
+        ('course_exemption', 'Course Exemption Request'),
+        ('military_docs', 'Reserve Duty Documentation'),
+        ('include_hw_grade', 'Include Homework in Final Grade'),
+    ]
 
     title = models.CharField(max_length=255)
     description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    request_type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='other')
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     assigned_to = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role__in': ['academic', 'secretary']})
     submitted_at = models.DateTimeField(auto_now_add=True)
