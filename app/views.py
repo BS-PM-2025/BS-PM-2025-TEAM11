@@ -97,3 +97,48 @@ def student_request_history_view(request):
     except Student.DoesNotExist:
         requests = []
     return render(request, 'student_request_history.html', {'requests': requests})
+
+
+
+@login_required
+def secretary_requests_api(request):
+    user = request.user
+    status = request.GET.get('status', None)
+
+    if status:
+        requests = Request.objects.filter(assigned_to=user, status=status)
+    else:
+        requests = Request.objects.filter(assigned_to=user)
+
+    data = [{
+        'title': r.title,
+        'description': r.description,
+        'status': r.status,
+        'submitted_at': r.submitted_at,
+    } for r in requests]
+
+    return JsonResponse(data, safe=False)
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import Request
+
+@login_required
+def academic_requests_api(request):
+    # Get status from query parameters
+    status = request.GET.get('status')
+    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
+
+    if status not in valid_statuses:
+        return JsonResponse({'error': 'Invalid status'}, status=400)
+
+    user = request.user
+    # Check that the user has 'academic' role
+    if not hasattr(user, 'role') or user.role != 'academic':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    # Filter requests assigned to this academic user
+    requests_qs = Request.objects.filter(assigned_to=user, status=status)
+
+    # Serialize and return data
+    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
+    return JsonResponse(data, safe=False)

@@ -15,5 +15,6 @@ urlpatterns = [
 
     path('dashboard/', views.student_dashboard, name='student_dashboard'),
     path('dashboard/student/requests/history/', views.student_request_history_view,name='student_request_history'),
-
+    path('api/requests/secretary/', views.secretary_requests_api, name='secretary_requests_api'),
+    path('api/requests/academic/', views.academic_requests_api, name='academic_requests_api'),
 ]
