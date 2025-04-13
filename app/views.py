@@ -8,6 +8,7 @@ from .models import Request
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
+from app.models import Request, Student
 
 from .models import User
 
@@ -55,23 +56,15 @@ def login_view(request):
 def student_dashboard(request):
     return render(request, 'student_dashboard.html')
 
-@login_required
 def secretary_dashboard(request):
-    if request.user.role != 'secretary':
-        return redirect('login')
-
     return render(request, 'secretary_dashboard.html')
 
-@login_required
 def academic_dashboard(request):
-    if request.user.role != 'academic':
-        return redirect('login')
     return render(request, 'academic_dashboard.html')
 def academic_request_history_view(request):
     return render(request, 'academic_request_history.html')
 def secretary_request_history_view(request):
     return render(request, 'secretary_request_history.html')
-
 
 @login_required
 def categorized_requests_api(request):
@@ -92,45 +85,15 @@ def categorized_requests_api(request):
 
 
 @login_required
-def secretary_requests_api(request):
-    user = request.user
-    status = request.GET.get('status', None)
-
-    if status:
-        requests = Request.objects.filter(assigned_to=user, status=status)
-    else:
-        requests = Request.objects.filter(assigned_to=user)
-
-    data = [{
-        'title': r.title,
-        'description': r.description,
-        'status': r.status,
-        'submitted_at': r.submitted_at,
-    } for r in requests]
-
-    return JsonResponse(data, safe=False)
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import Request
+def student_dashboard(request):
+    request_types = dict(Request.REQUEST_TYPES)
+    return render(request, 'student_dashboard.html', {'request_types': request_types})
 
 @login_required
-def academic_requests_api(request):
-    # Get status from query parameters
-    status = request.GET.get('status')
-    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
-
-    if status not in valid_statuses:
-        return JsonResponse({'error': 'Invalid status'}, status=400)
-
-    user = request.user
-    # Check that the user has 'academic' role
-    if not hasattr(user, 'role') or user.role != 'academic':
-        return JsonResponse({'error': 'Unauthorized'}, status=403)
-
-    # Filter requests assigned to this academic user
-    requests_qs = Request.objects.filter(assigned_to=user, status=status)
-
-    # Serialize and return data
-    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
-    return JsonResponse(data, safe=False)
-
+def student_request_history_view(request):
+    try:
+        student_profile = Student.objects.get(user=request.user)
+        requests = Request.objects.filter(student=student_profile).order_by('-submitted_at')
+    except Student.DoesNotExist:
+        requests = []
+    return render(request, 'student_request_history.html', {'requests': requests})

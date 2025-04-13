@@ -25,7 +25,6 @@ class LoginTests(TestCase):
             role='student'
         )
         Student.objects.create(user=self.student, year_of_study=2, degree_type='bachelor')
-
         self.secretary = User.objects.create_user(
             username='secretary1',
             password='pass123456',
@@ -147,3 +146,24 @@ class RequestAPITests(TestCase):
         self.client.login(username='secretary1', password='pass123456')
         response = self.client.get('/api/requests/?status=pending')
         self.assertEqual(response.status_code, 200)
+
+
+
+def test_request_types_are_defined_correctly():
+    expected_types = {
+        "grade_appeal": "Grade Appeal",
+        "extension_request": "Extension Request",
+        "course_swap": "Course Swap"
+    }
+
+
+def test_dashboard_route(client):
+    # ביצוע בקשה ל-route של הדשבורד
+    response = client.get('/dashboard')  # או כל route אחר
+    assert response.status_code == 200
+
+    # בדיקה שהבקשות מוצגות בטקסט
+    html = response.data.decode()
+    assert "Grade Appeal" in html
+    assert "Extension Request" in html
+    assert "Course Swap" in html
