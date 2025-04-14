@@ -142,3 +142,23 @@ def academic_requests_api(request):
     # Serialize and return data
     data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
     return JsonResponse(data, safe=False)
+
+def secretary_dashboard_other(request):
+    return render(request, 'secretary_dashboard_other.html')
+@login_required
+def secretary_requests_other_api(request):
+    user = request.user
+
+    requests = Request.objects.filter(assigned_to=user, request_type='other')
+
+    data = [
+        {
+            'title': r.title,
+            'description': r.description,
+            'status': r.status,
+            'submitted_at': r.submitted_at,
+        }
+        for r in requests
+    ]
+
+    return JsonResponse(data, safe=False)
