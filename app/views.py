@@ -103,12 +103,12 @@ def student_request_history_view(request):
 @login_required
 def secretary_requests_api(request):
     user = request.user
-    status = request.GET.get('status', None)
 
-    if status:
-        requests = Request.objects.filter(assigned_to=user, status=status)
-    else:
-        requests = Request.objects.filter(assigned_to=user)
+    # נביא רק את הבקשות שהן בפנדינג ולא מהסוג other
+    requests = Request.objects.filter(
+        assigned_to=user,
+        status='pending'
+    ).exclude(request_type='other')
 
     data = [{
         'title': r.title,
@@ -118,6 +118,8 @@ def secretary_requests_api(request):
     } for r in requests]
 
     return JsonResponse(data, safe=False)
+
+
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import Request
