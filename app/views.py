@@ -149,7 +149,11 @@ def secretary_dashboard_other(request):
 def secretary_requests_other_api(request):
     user = request.user
 
-    requests = Request.objects.filter(assigned_to=user, request_type='other')
+    requests = Request.objects.filter(
+        assigned_to=user,
+        request_type='other',
+        status='pending'
+    )
 
     data = [
         {

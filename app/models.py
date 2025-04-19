@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 # Create your models here.
 from django.contrib.auth.models import AbstractUser
@@ -87,5 +88,13 @@ class Request(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        # ✅ לא לאפשר אישור או דחיה לסוג 'other'
+        if self.request_type == 'other' and self.status in ['accepted', 'rejected']:
+            raise ValidationError("Cannot accept or reject a request of type 'Other'. It must be forwarded only.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
     def __str__(self):
         return f"Request: {self.title} ({self.status})"

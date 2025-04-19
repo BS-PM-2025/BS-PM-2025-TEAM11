@@ -8,5 +8,8 @@ admin.site.register(User)
 admin.site.register(Student)
 admin.site.register(Secretary)
 admin.site.register(AcademicStaff)
-admin.site.register(Request)
+class RequestAdmin(admin.ModelAdmin):
+    class Media:
+        js = ('js/request_admin.js',)
+admin.site.register(Request, RequestAdmin)
 
