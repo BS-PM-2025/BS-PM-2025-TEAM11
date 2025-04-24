@@ -2,14 +2,17 @@ pipeline {
     agent any
 
     stages {
-        stage('Install Django') {
+        stage('Setup Environment') {
             steps {
-                sh 'pip install Django || true'
+                // Install pip and Django
+                sh 'python -m pip install --upgrade pip'
+                sh 'pip install Django'
             }
         }
 
         stage('Run Django Tests') {
             steps {
+                // Run the tests for your Django app
                 sh 'python manage.py test'
             }
         }
