@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Install dependencies') {
             steps {
-                sh 'pip install -r requirements.txt || true' // Will not fail if requirements.txt doesn't exist
+                sh 'pip install -r requirements.txt || true' // if no file, continue anyway
             }
         }
 
