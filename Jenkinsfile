@@ -1,29 +1,20 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.10'
+        }
+    }
+
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    image 'python:2-alpine'
-                }
-            }
+        stage('Install Django') {
             steps {
-                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
+                sh 'pip install Django'
             }
         }
-        stage('Test') {
-            agent {
-                docker {
-                    image 'qnib/pytest'
-                }
-            }
+
+        stage('Run Django Tests') {
             steps {
-                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py'
-            }
-            post {
-                always {
-                    junit 'test-reports/results.xml'
-                }
+                sh 'python manage.py test app.tests --verbosity=2'
             }
         }
     }
