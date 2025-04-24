@@ -4,13 +4,13 @@ pipeline {
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'pip install -r requirements.txt || pip install Django'
+                sh 'pip3 install -r requirements.txt || pip3 install Django'
             }
         }
 
         stage('Run Django Tests') {
             steps {
-                sh 'python manage.py test app'
+                sh 'python3 manage.py test app'
             }
         }
     }
