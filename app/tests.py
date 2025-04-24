@@ -149,3 +149,22 @@ class RequestAPITests(TestCase):
         response = self.client.get('/api/requests/?status=pending')
         self.assertEqual(response.status_code, 200)
 
+    def test_request_types_are_defined_correctly(self):
+        expected_types = {
+            "grade_appeal": "Grade Appeal",
+            "extension_request": "Extension Request",
+            "course_swap": "Course Swap"
+        }
+        self.assertIn("grade_appeal", expected_types)
+
+    def test_dashboard_route(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.get('/dashboard/', follow=True)
+        self.assertEqual(response.status_code, 200)
+
+        html = response.content.decode()
+        self.assertIn("Alternative Assignment for Iron Swords", html)
+        self.assertIn("Assignment Submission Extension", html)
+        self.assertIn("Course Unblocking", html)
+
+

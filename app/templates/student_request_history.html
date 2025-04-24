@@ -90,7 +90,7 @@
             <td>
                 {% if request.status == 'accepted' or request.status == 'rejected' %}
                     <button class="action-button view-button">View</button>
-                {% elif request.status == 'in_progress' %}
+                {% elif request.status == 'in_progress' or request.status == 'pending'%}
                     <button class="action-button track-button">Track</button>
                 {% else %}
                     -
