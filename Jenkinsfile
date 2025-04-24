@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     stages {
-        stage('Install Django') {
+        stage('Install Dependencies') {
             steps {
                 sh 'pip install django || true'
             }
