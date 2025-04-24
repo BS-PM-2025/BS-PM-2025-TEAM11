@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     stages {
-        stage('Install dependencies') {
+        stage('Install Django') {
             steps {
-                sh 'pip install -r requirements.txt || true' // if no file, continue anyway
+                sh 'pip install Django || true'
             }
         }
 
