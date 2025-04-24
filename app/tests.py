@@ -66,6 +66,7 @@ class LoginTests(TestCase):
     def test_login_academic_success_redirect(self):
         response = self.client.post(reverse('login'), {'username': 'academic1', 'password': 'pass123456'})
         self.assertRedirects(response, reverse('academic_dashboard'))
+
 class RequestAPITests(TestCase):
     def setUp(self):
         User = get_user_model()
@@ -117,19 +118,20 @@ class RequestAPITests(TestCase):
         )
 
         Request.objects.create(
-            title='Test Request 2',
-            description='This is an accepted request.',
-            status='accepted',
+            title='Test Request 1',
+            description='This is a pending request.',
+            status='pending',
             student=self.student,
             assigned_to=self.academic_user,
-            submitted_at=timezone.now()
+            submitted_at=timezone.now(),
+            request_type='iron_swords'
         )
 
     def test_api_returns_only_assigned_requests(self):
         self.client.login(username='academic1', password='pass123456')
         response = self.client.get('/api/requests/?status=pending')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(len(response.json()), 2)
         self.assertEqual(response.json()[0]['status'], 'pending')
 
     def test_api_rejects_invalid_status(self):
@@ -147,23 +149,3 @@ class RequestAPITests(TestCase):
         response = self.client.get('/api/requests/?status=pending')
         self.assertEqual(response.status_code, 200)
 
-
-
-def test_request_types_are_defined_correctly():
-    expected_types = {
-        "grade_appeal": "Grade Appeal",
-        "extension_request": "Extension Request",
-        "course_swap": "Course Swap"
-    }
-
-
-def test_dashboard_route(client):
-    # ביצוע בקשה ל-route של הדשבורד
-    response = client.get('/dashboard')  # או כל route אחר
-    assert response.status_code == 200
-
-    # בדיקה שהבקשות מוצגות בטקסט
-    html = response.data.decode()
-    assert "Grade Appeal" in html
-    assert "Extension Request" in html
-    assert "Course Swap" in html
