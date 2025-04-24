@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'pip install django || true'
+                sh 'pip install -r requirements.txt || pip install Django'
             }
         }
 
