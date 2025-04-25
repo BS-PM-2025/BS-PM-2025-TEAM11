@@ -178,7 +178,7 @@ class RequestAPITests(TestCase):
         # Now make the API request
         response = self.client.get(url)
 
-        # Check that the status code is 200 (OK)
+        # Check that the statusu code is 200 (OK)
         self.assertEqual(response.status_code, 200)
 
     def test_invalid_status_for_academic_requests_api(self):
