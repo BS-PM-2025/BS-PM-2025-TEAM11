@@ -207,4 +207,51 @@ class RequestAPITests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {'error': 'Unauthorized'})
 
+class LogoutTests(TestCase):
+    def setUp(self):
+        # Create users
+        self.student = User.objects.create_user(
+            username='student1', password='pass123456',
+            id_number='111111111', role='student',
+            first_name='Student', last_name='One'
+        )
+        Student.objects.create(user=self.student, year_of_study=1, degree_type='bachelor')
 
+        self.secretary = User.objects.create_user(
+            username='secretary1', password='pass123456',
+            id_number='222222222', role='secretary',
+            first_name='Secretary', last_name='User'
+        )
+        Secretary.objects.create(user=self.secretary)
+
+        self.academic = User.objects.create_user(
+            username='academic1', password='pass123456',
+            id_number='333333333', role='academic',
+            first_name='Academic', last_name='User'
+        )
+        AcademicStaff.objects.create(user=self.academic)
+
+    def test_student_logout(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        # Try to access protected page
+        resp = self.client.get(reverse('student_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('student_dashboard')}")
+
+    def test_secretary_logout(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        resp = self.client.get(reverse('secretary_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('secretary_dashboard')}")
+
+    def test_academic_logout(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        resp = self.client.get(reverse('academic_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")

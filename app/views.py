@@ -2,11 +2,12 @@ from django.shortcuts import render
 
 # Create your views here.
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .models import Request
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 
 from app.models import Request, Student
 
@@ -53,20 +54,29 @@ def login_view(request):
     return render(request, 'login.html')
 
 
+@login_required
+@never_cache
 def student_dashboard(request):
     return render(request, 'student_dashboard.html')
-
+@login_required
+@never_cache
 def secretary_dashboard(request):
     return render(request, 'secretary_dashboard.html')
-
+@login_required
+@never_cache
 def academic_dashboard(request):
     return render(request, 'academic_dashboard.html')
+@login_required
+@never_cache
 def academic_request_history_view(request):
     return render(request, 'academic_request_history.html')
+@login_required
+@never_cache
 def secretary_request_history_view(request):
     return render(request, 'secretary_request_history.html')
-
 @login_required
+@never_cache
+
 def categorized_requests_api(request):
     status = request.GET.get('status')
 
@@ -84,12 +94,16 @@ def categorized_requests_api(request):
 
 
 
+
 @login_required
+@never_cache
 def student_dashboard(request):
     request_types = dict(Request.REQUEST_TYPES)
     return render(request, 'student_dashboard.html', {'request_types': request_types})
 
+
 @login_required
+@never_cache
 def student_request_history_view(request):
     try:
         student_profile = Student.objects.get(user=request.user)
@@ -101,6 +115,8 @@ def student_request_history_view(request):
 
 
 @login_required
+
+@never_cache
 def secretary_requests_api(request):
     user = request.user
 
@@ -125,6 +141,8 @@ from django.contrib.auth.decorators import login_required
 from .models import Request
 
 @login_required
+
+@never_cache
 def academic_requests_api(request):
     # Get status from query parameters
     status = request.GET.get('status')
@@ -144,10 +162,13 @@ def academic_requests_api(request):
     # Serialize and return data
     data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
     return JsonResponse(data, safe=False)
-
+@login_required
+@never_cache
 def secretary_dashboard_other(request):
     return render(request, 'secretary_dashboard_other.html')
 @login_required
+
+@never_cache
 def secretary_requests_other_api(request):
     user = request.user
 
@@ -168,3 +189,7 @@ def secretary_requests_other_api(request):
     ]
 
     return JsonResponse(data, safe=False)
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')
