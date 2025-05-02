@@ -18,5 +18,6 @@ urlpatterns = [
     path('api/requests/secretary/', views.secretary_requests_api, name='secretary_requests_api'),
     path('api/requests/academic/', views.academic_requests_api, name='academic_requests_api'),
     path('api/requests/secretary/other/', views.secretary_requests_other_api, name='secretary_requests_other_api'),
+    path('logout/', views.logout_view, name='logout'),
 
 ]

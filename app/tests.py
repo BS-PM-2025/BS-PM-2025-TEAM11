@@ -167,4 +167,91 @@ class RequestAPITests(TestCase):
         self.assertIn("Assignment Submission Extension", html)
         self.assertIn("Course Unblocking", html)
 
+    def test_secretary_requests_api(self):
+        # Create a test user with the 'secretary' role
+        user = User.objects.create_user(username='testuser', password='password', role='secretary')
+        self.client.login(username='testuser', password='password')
 
+        # Reverse the URL for the secretary request API
+        url = reverse('secretary_requests_api')
+
+        # Now make the API request
+        response = self.client.get(url)
+
+        # Check that the statusu code is 200 (OK)
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_status_for_academic_requests_api(self):
+        """
+        Test the academic API with an invalid status.
+        """
+        self.client.login(username='academic1', password='pass123456')
+
+        # Get the API response with an invalid status
+        response = self.client.get(reverse('academic_requests_api') + '?status=invalid_status')
+
+        # Assert the response status code for invalid status
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {'error': 'Invalid status'})
+
+    def test_unauthorized_access_academic_requests_api(self):
+        """
+        Test that only users with 'academic' role can access the academic API.
+        """
+        self.client.login(username='secretary1', password='pass123456')
+
+        # Get the API response for an academic request while logged in as secretary
+        response = self.client.get(reverse('academic_requests_api') + '?status=pending')
+
+        # Assert that unauthorized access is denied
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {'error': 'Unauthorized'})
+
+class LogoutTests(TestCase):
+    def setUp(self):
+        # Create users
+        self.student = User.objects.create_user(
+            username='student1', password='pass123456',
+            id_number='111111111', role='student',
+            first_name='Student', last_name='One'
+        )
+        Student.objects.create(user=self.student, year_of_study=1, degree_type='bachelor')
+
+        self.secretary = User.objects.create_user(
+            username='secretary1', password='pass123456',
+            id_number='222222222', role='secretary',
+            first_name='Secretary', last_name='User'
+        )
+        Secretary.objects.create(user=self.secretary)
+
+        self.academic = User.objects.create_user(
+            username='academic1', password='pass123456',
+            id_number='333333333', role='academic',
+            first_name='Academic', last_name='User'
+        )
+        AcademicStaff.objects.create(user=self.academic)
+
+    def test_student_logout(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        # Try to access protected page
+        resp = self.client.get(reverse('student_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('student_dashboard')}")
+
+    def test_secretary_logout(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        resp = self.client.get(reverse('secretary_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('secretary_dashboard')}")
+
+    def test_academic_logout(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.post(reverse('logout'))
+        self.assertRedirects(response, reverse('login'))
+
+        resp = self.client.get(reverse('academic_dashboard'))
+        self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")
