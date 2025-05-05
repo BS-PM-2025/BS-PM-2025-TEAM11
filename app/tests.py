@@ -209,25 +209,42 @@ class RequestAPITests(TestCase):
 
 class LogoutTests(TestCase):
     def setUp(self):
-        # Create users
+        # Create student user
         self.student = User.objects.create_user(
-            username='student1', password='pass123456',
-            id_number='111111111', role='student',
-            first_name='Student', last_name='One'
+            username='student1',
+            password='pass123456',
+            id_number='111111111',
+            role='student',
+            first_name='Student',
+            last_name='One',
+            phone='0500000001',
+            email='student1@test.com'
         )
         Student.objects.create(user=self.student, year_of_study=1, degree_type='bachelor')
 
+        # Create secretary user
         self.secretary = User.objects.create_user(
-            username='secretary1', password='pass123456',
-            id_number='222222222', role='secretary',
-            first_name='Secretary', last_name='User'
+            username='secretary1',
+            password='pass123456',
+            id_number='222222222',
+            role='secretary',
+            first_name='Secretary',
+            last_name='User',
+            phone='0500000002',
+            email='secretary1@test.com'
         )
         Secretary.objects.create(user=self.secretary)
 
+        # Create academic user
         self.academic = User.objects.create_user(
-            username='academic1', password='pass123456',
-            id_number='333333333', role='academic',
-            first_name='Academic', last_name='User'
+            username='academic1',
+            password='pass123456',
+            id_number='333333333',
+            role='academic',
+            first_name='Academic',
+            last_name='User',
+            phone='0500000003',
+            email='academic1@test.com'
         )
         AcademicStaff.objects.create(user=self.academic)
 
