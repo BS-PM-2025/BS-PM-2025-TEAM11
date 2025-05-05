@@ -209,7 +209,7 @@ class RequestAPITests(TestCase):
 
 class LogoutTests(TestCase):
     def setUp(self):
-        # Create student user
+        # Create student user try
         self.student = User.objects.create_user(
             username='student1',
             password='pass123456',
