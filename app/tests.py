@@ -272,3 +272,97 @@ class LogoutTests(TestCase):
 
         resp = self.client.get(reverse('academic_dashboard'))
         self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")
+
+from django.test import TestCase, Client
+from django.contrib.auth import get_user_model
+from app.models import Student  # החלף לנתיב הנכון אם צריך
+
+User = get_user_model()
+
+class RegistrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.existing_user = User.objects.create_user(
+            username="existinguser",
+            email="existing@ac.sce.ac.il",
+            id_number="123456789",
+            phone="0500000000",
+            password="Testpass123",
+            role="student"
+        )
+
+    def test_send_verification_code_valid(self):
+        response = self.client.post('/send-verification-code/', {'email': 'newuser@ac.sce.ac.il'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'status': 'ok'})
+
+    def test_send_verification_code_existing_email(self):
+        response = self.client.post('/send-verification-code/', {'email': 'existing@ac.sce.ac.il'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {
+            'status': 'exists',
+            'message': 'Email already registered.'
+        })
+
+    def test_verify_code_success(self):
+        session = self.client.session
+        session['verification_code'] = '123456'
+        session.save()
+        response = self.client.post('/verify-code/', {'code': '123456'})
+        self.assertJSONEqual(response.content, {'status': 'success'})
+
+    def test_verify_code_invalid(self):
+        session = self.client.session
+        session['verification_code'] = '123456'
+        session.save()
+        response = self.client.post('/verify-code/', {'code': '000000'})
+        self.assertJSONEqual(response.content, {'status': 'invalid'})
+
+    def test_check_id_exists(self):
+        response = self.client.post('/check-id-and-phone/', content_type='application/json', data={
+            'id_number': '123456789',
+            'phone': '0501111111'
+        })
+        self.assertJSONEqual(response.content, {
+            'status': 'exists',
+            'message': 'Student ID already exists in the system.'
+        })
+
+    def test_check_phone_exists(self):
+        response = self.client.post('/check-id-and-phone/', content_type='application/json', data={
+            'id_number': '987654321',
+            'phone': '0500000000'
+        })
+        self.assertJSONEqual(response.content, {
+            'status': 'exists',
+            'message': 'Phone number already exists in the system.'
+        })
+
+    def test_check_id_and_phone_ok(self):
+        response = self.client.post('/check-id-and-phone/', content_type='application/json', data={
+            'id_number': '987654321',
+            'phone': '0501234567'
+        })
+        self.assertJSONEqual(response.content, {'status': 'ok'})
+
+    def test_final_student_registration_success(self):
+        response = self.client.post('/final-student-registration/', content_type='application/json', data={
+            'username': 'newstudent',
+            'first_name': 'New',
+            'last_name': 'Student',
+            'id_number': '987654321',
+            'phone': '0507654321',
+            'email': 'newstudent@ac.sce.ac.il',
+            'password': 'Testpass123',
+            'education': {
+                'start_year': 2023,
+                'degree_type': 'bachelor',
+                'current_year_of_study': 1,
+                'current_semester': 'A',
+                'year1_sem1': '2023-2024',
+                'year1_sem2': '2023-2024',
+            }
+        })
+        self.assertJSONEqual(response.content, {'status': 'success'})
+        self.assertTrue(User.objects.filter(username='newstudent').exists())
+        self.assertTrue(Student.objects.filter(user__username='newstudent').exists())

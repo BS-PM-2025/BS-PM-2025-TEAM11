@@ -109,3 +109,77 @@ class Request(models.Model):
         super().save(*args, **kwargs)
     def __str__(self):
         return f"Request: {self.title} ({self.status})"
+
+from django.db import models
+from django.conf import settings
+
+# ✅ טבלת קורסים (הגדרה של הקורסים עצמם)
+class Course(models.Model):
+    SEMESTER_CHOICES = [
+        ('A', 'סמסטר א'),
+        ('B', 'סמסטר ב'),
+    ]
+
+    YEAR_OF_STUDY_CHOICES = [
+        (1, 'שנה א'),
+        (2, 'שנה ב'),
+        (3, 'שנה ג'),
+        (4, 'שנה ד'),
+    ]
+
+    name = models.CharField(max_length=255, verbose_name="שם הקורס")
+    semester = models.CharField(max_length=1, choices=SEMESTER_CHOICES, verbose_name="סמסטר לימוד הקורס", null=True)
+    year_of_study = models.IntegerField(choices=YEAR_OF_STUDY_CHOICES, verbose_name="שנת לימוד הקורס", null=True)
+
+    def __str__(self):
+        return f"{self.name} (שנה {self.year_of_study}, סמסטר {self.semester})"
+# ✅ טבלת קישור בין סטודנט לקורס שלמד בפועל
+class StudentCourse(models.Model):
+    SEMESTER_CHOICES = [
+        ('A', 'סמסטר א'),
+        ('B', 'סמסטר ב'),
+    ]
+
+    student = models.ForeignKey('Student', on_delete=models.CASCADE)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
+
+    academic_year = models.CharField(
+        max_length=9,
+        verbose_name="שנה אקדמית",
+        help_text="פורמט: 2022-2023",
+        null=True,  # ⬅️ זה השינוי הדרוש!
+        blank=True  # ⬅️ כדי לא להכריח למלא בטפסים
+    )
+    semester = models.CharField(max_length=1, choices=SEMESTER_CHOICES, verbose_name="סמסטר")
+
+    class Meta:
+        unique_together = ('student', 'course', 'academic_year', 'semester')
+
+    def __str__(self):
+        return f"{self.student.user.id_number} - {self.course.name} ({self.academic_year}, סמסטר {self.semester})"
+
+
+class CourseInstructor(models.Model):
+    SEMESTER_CHOICES = [
+        ('A', 'סמסטר א'),
+        ('B', 'סמסטר ב'),
+    ]
+
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
+    academic_staff = models.ForeignKey('AcademicStaff', on_delete=models.CASCADE)
+    academic_year = models.CharField(
+        max_length=9,
+        verbose_name="שנה אקדמית",
+        help_text="פורמט: 2022-2023",
+        null=True,
+        blank=True
+    )
+    semester = models.CharField(max_length=1, choices=SEMESTER_CHOICES, verbose_name="סמסטר")
+
+    class Meta:
+        unique_together = ('course', 'academic_staff', 'academic_year', 'semester')
+        verbose_name = "שיוך קורס למרצה"
+        verbose_name_plural = "שיוכי קורסים למרצים"
+
+    def __str__(self):
+        return f"{self.academic_staff.user.username} לימד את {self.course.name} בשנת {self.academic_year}, סמסטר {self.semester}"
