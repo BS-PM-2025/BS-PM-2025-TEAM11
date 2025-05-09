@@ -18,5 +18,10 @@ urlpatterns = [
     path('api/requests/secretary/', views.secretary_requests_api, name='secretary_requests_api'),
     path('api/requests/academic/', views.academic_requests_api, name='academic_requests_api'),
     path('api/requests/secretary/other/', views.secretary_requests_other_api, name='secretary_requests_other_api'),
+    path('logout/', views.logout_view, name='logout'),
+    path('send-verification-code/', views.send_verification_code, name='send_verification_code'),
+    path('verify-code/', views.verify_code, name='verify_code'),
+    path('check-id-and-phone/', views.check_id_and_phone, name='check_id_and_phone'),
+    path('final-student-registration/', views.final_student_registration, name='final_student_registration'),
 
 ]

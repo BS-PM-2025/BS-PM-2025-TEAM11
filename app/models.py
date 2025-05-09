@@ -15,8 +15,8 @@ class User(AbstractUser):
     ]
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    id_number = models.CharField(max_length=10, unique=True)  # ת"ז מוסדית (מוזנת בהרשמה)
-    phone = models.CharField(max_length=15)
+    id_number = models.CharField(max_length=9, unique=True)  # ת"ז מוסדית (מוזנת בהרשמה)
+    phone = models.CharField(max_length=10, unique=True)
     department = models.CharField(max_length=100)
     date_start = models.DateField(null=True, blank=True)
 
@@ -37,6 +37,17 @@ class Student(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     year_of_study = models.PositiveIntegerField(verbose_name="year of study")
     degree_type = models.CharField(max_length=10, choices=DEGREE_CHOICES, verbose_name="degree type")
+    year1_sem1 = models.CharField(max_length=9, null=True, blank=True)
+    year1_sem2 = models.CharField(max_length=9, null=True, blank=True)
+    year2_sem1 = models.CharField(max_length=9, null=True, blank=True)
+    year2_sem2 = models.CharField(max_length=9, null=True, blank=True)
+    year3_sem1 = models.CharField(max_length=9, null=True, blank=True)
+    year3_sem2 = models.CharField(max_length=9, null=True, blank=True)
+    year4_sem1 = models.CharField(max_length=9, null=True, blank=True)
+    year4_sem2 = models.CharField(max_length=9, null=True, blank=True)
+    current_year_of_study = models.PositiveIntegerField(null=True, blank=True)
+    current_semester = models.CharField(max_length=1, choices=[('A', 'Semester A'), ('B', 'Semester B')], null=True,
+                                        blank=True)
 
     def __str__(self):
         return f"Student: {self.user.username}"
