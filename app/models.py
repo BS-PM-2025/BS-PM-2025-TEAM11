@@ -76,18 +76,18 @@ class Request(models.Model):
         ('rejected', 'Rejected'),
     ]
     REQUEST_TYPES = [
-        ('other', 'Other'),
-        ('iron_swords', 'Alternative Assignment for Iron Swords'),
-        ('delay_submission', 'Assignment Submission Extension'),
-        ('course_unblock', 'Course Unblocking'),
-        ('cancel_hw_percent', 'Cancel Homework Percentage in Final Grade'),
-        ('prerequisite_exemption', 'Prerequisite Exemption'),
-        ('increase_credits', 'Credit Limit Increase'),
-        ('registration_exemption', 'Exemption from Course Registration'),
-        ('special_exam', 'Special Exam Request'),
-        ('course_exemption', 'Course Exemption Request'),
-        ('military_docs', 'Reserve Duty Documentation'),
-        ('include_hw_grade', 'Include Homework in Final Grade'),
+        ('other', 'אחר'),
+        ('cancel_hw_percent', 'ביטול % אחוז עבודות בית בציון הסופי'),
+        ('special_exam', 'בקשה למועד מיוחד'),
+        ('iron_swords', 'בקשה למטלה חלופית - חרבות ברזל'),
+        ('prerequisite_exemption', 'בקשה לפטור מדרישות קדם'),
+        ('course_exemption', 'בקשה לפטור מקורס'),
+        ('delay_submission', 'דחיית הגשת עבודה'),
+        ('increase_credits', 'הגדלת נ"ז מעבר למותר'),
+        ('military_docs', 'הגשת אישורי מילואים'),
+        ('course_unblock', 'שחרור חסימת קורס'),
+        ('registration_exemption', 'שחרור מחובת הרשמה'),
+        ('include_hw_grade', 'שקלול עבודות בית בציון הסופי'),
     ]
 
     title = models.CharField(max_length=255)
