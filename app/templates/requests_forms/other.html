@@ -1,0 +1,89 @@
+<style>
+    .request-form {
+        background-color: #ffffff;
+        padding: 25px 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        margin: 80px auto;
+        font-family: Arial, sans-serif;
+        color: #333;
+    }
+
+    .request-form h3 {
+        text-align: center;
+        margin-bottom: 25px;
+        color: #008B8B;
+    }
+
+    .request-form label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: bold;
+    }
+
+    .request-form input[type="text"],
+    .request-form textarea,
+    .request-form input[type="file"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font-size: 14px;
+    }
+
+    .request-form button {
+        background-color: #008B8B;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        display: block;
+        margin: 0 auto;
+        transition: background-color 0.3s ease;
+    }
+
+    .request-form button:hover {
+        background-color: #006f6f;
+    }
+
+    input[type="file"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #f8f8f8;
+    font-size: 14px;
+    font-family: inherit;
+    color: #333;
+    cursor: pointer;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+input[type="file"]:hover {
+    border-color: #008B8B;
+    background-color: #eefafa;
+}
+
+</style>
+
+<form class="request-form" method="post" action="{% url 'submit_other_request' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <h3> אחר </h3>
+
+    <input type="hidden" name="request_type" value="other">
+
+    <label for="title">נושא *</label>
+    <input type="text" name="title" id="title" required>
+
+    <label for="description">תוכן</label>
+    <textarea name="description" id="description" rows="4"></textarea>
+
+    <label for="attachment">צירוף קובץ</label>
+    <input type="file" name="attachment" id="attachment">
+
+    <button type="submit">שלח</button>
+</form>

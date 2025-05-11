@@ -99,11 +99,12 @@
         {% endif %}
 
 
-       <form method="post" action="#">
-          <button type="submit">
-             <i class="fas fa-sign-out-alt"></i> Logout
-          </button>
+      <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+         <button type="submit">
+               <i class="fas fa-sign-out-alt"></i> Logout
+         </button>
+    </form>
 
-       </form>
     </div>
 </div>

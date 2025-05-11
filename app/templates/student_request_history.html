@@ -1,7 +1,8 @@
 {% include 'partials/navbar.html' %}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
+
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -12,7 +13,8 @@
             font-family: Arial, sans-serif;
             padding: 40px;
             background-color: #f0f0f0;
-            direction: ltr;
+            direction: rtl;
+            text-align: right;
         }
         h1 {
             text-align: center;
@@ -57,50 +59,55 @@
 </head>
 <body>
 
-<h1>My Request History</h1>
+<h1>היסטוריית הבקשות שלי</h1>
+
 
 <table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Status</th>
-            <th>Request Title</th>
-            <th>Submission Date</th>
-            <th>Action</th>
-        </tr>
-    </thead>
+<thead>
+    <tr>
+        <th>מס'</th>
+        <th>סטטוס</th>
+        <th>כותרת הבקשה</th>
+        <th>תאריך הגשה</th>
+        <th>פעולה</th>
+    </tr>
+</thead>
+
     <tbody>
         {% for request in requests %}
         <tr>
             <td>{{ forloop.counter }}</td>
            <td>
-    {% if request.status == 'accepted' %}
-        <i class="fas fa-check-circle" style="color: green;"></i> Accepted
-    {% elif request.status == 'rejected' %}
-        <i class="fas fa-times-circle" style="color: red;"></i> Rejected
-    {% elif request.status == 'in_progress' %}
-        <i class="fas fa-spinner" style="color: orange;"></i> In Progress
-    {% else %}
-        <i class="fas fa-hourglass-half" style="color: gray;"></i> Pending
-    {% endif %}
+{% if request.status == 'accepted' %}
+    <i class="fas fa-check-circle" style="color: green;"></i> התקבלה
+{% elif request.status == 'rejected' %}
+    <i class="fas fa-times-circle" style="color: red;"></i> נדחתה
+{% elif request.status == 'in_progress' %}
+    <i class="fas fa-spinner" style="color: orange;"></i> בטיפול
+{% else %}
+    <i class="fas fa-hourglass-half" style="color: gray;"></i> ממתינה
+{% endif %}
+
 </td>
 
             <td>{{ request.title }}</td>
             <td>{{ request.submitted_at|date:"d/m/Y" }}</td>
             <td>
-                {% if request.status == 'accepted' or request.status == 'rejected' %}
-                    <button class="action-button view-button">View</button>
-                {% elif request.status == 'in_progress' or request.status == 'pending'%}
-                    <button class="action-button track-button">Track</button>
-                {% else %}
-                    -
-                {% endif %}
+{% if request.status == 'accepted' or request.status == 'rejected' %}
+    <button class="action-button view-button">צפייה</button>
+{% elif request.status == 'in_progress' or request.status == 'pending'%}
+    <button class="action-button track-button">מעקב</button>
+{% else %}
+    -
+{% endif %}
+
             </td>
         </tr>
         {% empty %}
-        <tr>
-            <td colspan="5">No requests found.</td>
-        </tr>
+<tr>
+    <td colspan="5">לא נמצאו בקשות.</td>
+</tr>
+
         {% endfor %}
     </tbody>
 </table>

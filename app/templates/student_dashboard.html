@@ -1,7 +1,8 @@
  {% include 'partials/navbar.html' %}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
+
 <head>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
@@ -78,11 +79,25 @@
 
 <div class="requests-container">
     {% for key, label in request_types.items %}
-        <div class="request-card" onclick="window.location.href='#'">
+        <div class="request-card" onclick="showForm('{{ key }}')">
             <span class="plus-icon">+</span>{{ label }}
         </div>
     {% endfor %}
 </div>
+
+<!-- כאן יופיעו הטפסים -->
+<div id="request-forms-area"></div>
+
+<script>
+function showForm(requestType) {
+    fetch(`/load-request-form/?type=${requestType}`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('request-forms-area').innerHTML = html;
+        });
+}
+</script>
+
 <!-- אייקון צ'אטבוט -->
 <a href="#" class="chatbot-button" title="צ'אטבוט">
   <i class="fas fa-robot"></i>
@@ -93,3 +108,4 @@
 
 </body>
 </html>
+
