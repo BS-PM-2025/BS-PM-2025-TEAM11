@@ -8,8 +8,6 @@ from app.models import Student, Secretary, AcademicStaff
 from django.utils import timezone
 from app.models import Request
 
-
-
 User = get_user_model()
 
 class LoginTests(TestCase):
@@ -350,3 +348,4 @@ class RegistrationTests(TestCase):
         self.assertJSONEqual(response.content, {'status': 'success'})
         self.assertTrue(User.objects.filter(username='newstudent').exists())
         self.assertTrue(Student.objects.filter(user__username='newstudent').exists())
+

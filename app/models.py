@@ -92,6 +92,7 @@ class Request(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField()
+    attachment = models.FileField(upload_to='attachments/', null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     request_type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='other')
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -109,3 +110,33 @@ class Request(models.Model):
         super().save(*args, **kwargs)
     def __str__(self):
         return f"Request: {self.title} ({self.status})"
+
+
+
+
+
+
+
+class Course(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class CourseOffering(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    instructor = models.ForeignKey(AcademicStaff, on_delete=models.CASCADE)
+    year = models.PositiveIntegerField()
+    semester = models.CharField(max_length=1, choices=[('A', 'A'), ('B', 'B')])
+
+    def __str__(self):
+        return f"{self.course.name} - {self.instructor.user.get_full_name()}"
+
+
+class StudentCourseEnrollment(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    offering = models.ForeignKey(CourseOffering, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.student.user.username} - {self.offering}"

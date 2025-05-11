@@ -1,0 +1,79 @@
+<style>
+    .request-form {
+        background-color: #ffffff;
+        padding: 25px 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        margin: 80px auto;
+        font-family: Arial, sans-serif;
+    }
+
+    .request-form label {
+        font-weight: bold;
+        display: block;
+        margin-top: 15px;
+    }
+
+    .request-form select,
+    .request-form input[type="text"],
+    .request-form textarea,
+    .request-form input[type="file"] {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-sizing: border-box;
+    }
+
+    .request-form button {
+        background-color: #008B8B;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        display: block;
+        margin: 25px auto 0;
+    }
+
+    .request-form button:hover {
+        background-color: #006f6f;
+    }
+    .request-form h3 {
+        text-align: center;
+        margin-bottom: 25px;
+        color: #008B8B;
+    }
+
+</style>
+
+<form class="request-form" method="post" action="{% url 'submit_registration_exemption' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <h3>בקשה לשחרור מחובת הרשמה</h3>
+
+    <input type="hidden" name="request_type" value="registration_exemption">
+
+    <label for="course">בחר קורס *</label>
+    <select name="course" id="course" required>
+        <option value="" disabled selected>בחר קורס...</option>
+        {% for offering in allowed_offerings %}
+            <option value="{{ offering.course.name }}">
+                {{ offering.course.name }} - {{ offering.instructor.user.get_full_name }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="title">נושא *</label>
+    <input type="text" name="title" id="title" required>
+
+    <label for="description">תוכן</label>
+    <textarea name="description" id="description" rows="4"></textarea>
+
+    <label for="attachment">צירוף קובץ</label>
+    <input type="file" name="attachment" id="attachment">
+
+    <button type="submit">שלח</button>
+</form>

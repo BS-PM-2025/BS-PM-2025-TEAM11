@@ -117,21 +117,25 @@ def student_request_history_view(request):
 @login_required
 
 @never_cache
+@login_required
+@never_cache
 def secretary_requests_api(request):
     user = request.user
 
-    # נביא רק את הבקשות שהן בפנדינג ולא מהסוג other
     requests = Request.objects.filter(
         assigned_to=user,
         status='pending'
-    ).exclude(request_type='other')
+    ).exclude(request_type='other').order_by('-submitted_at')
 
-    data = [{
-        'title': r.title,
-        'description': r.description,
-        'status': r.status,
-        'submitted_at': r.submitted_at,
-    } for r in requests]
+    data = [
+        {
+            'title': r.title,
+            'description': r.description,
+            'status': r.status,
+            'submitted_at': r.submitted_at,
+        }
+        for r in requests
+    ]
 
     return JsonResponse(data, safe=False)
 
@@ -165,25 +169,29 @@ def academic_requests_api(request):
 @login_required
 @never_cache
 def secretary_dashboard_other(request):
-    return render(request, 'secretary_dashboard_other.html')
+    return render(request, 'secretary_request_other.html')
 @login_required
-
 @never_cache
 def secretary_requests_other_api(request):
-    user = request.user
+    if request.user.role != 'secretary':
+        return JsonResponse([], safe=False)
 
     requests = Request.objects.filter(
-        assigned_to=user,
+        assigned_to=request.user,
         request_type='other',
         status='pending'
-    )
+    ).order_by('-submitted_at')
 
     data = [
         {
+            'id': r.id,
             'title': r.title,
             'description': r.description,
             'status': r.status,
             'submitted_at': r.submitted_at,
+            'student_username': r.student.user.username,
+            'student_id': r.student.user.id_number,
+            'student_phone': r.student.user.phone
         }
         for r in requests
     ]
@@ -319,3 +327,379 @@ def final_student_registration(request):
             return JsonResponse({'status': 'error', 'message': str(e)})
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+
+from django.core.files.storage import FileSystemStorage
+
+@login_required
+def submit_other_request(request):
+    if request.method == 'POST':
+        student = Student.objects.get(user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        request_type = request.POST.get('request_type', 'other')
+
+        attachment = request.FILES.get('attachment')
+        secretary = User.objects.filter(role='secretary').first()
+
+        new_request = Request.objects.create(
+            title=title,
+            description=description,
+            request_type=request_type,
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')  # ✅ הפניה להיסטוריה של הסטודנט
+
+from django.shortcuts import get_object_or_404
+
+@login_required
+def submit_prerequisite_exemption(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        course = request.POST.get('course')  # אפשר לשמור אותו בתוך ה-title או description אם אין שדה נפרד
+        request_type = 'prerequisite_exemption'
+        attachment = request.FILES.get('attachment')
+
+        secretary = User.objects.filter(role='secretary').first()
+
+        full_title = f"({course}) {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type=request_type,
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+
+from django.shortcuts import get_object_or_404
+
+@login_required
+def secretary_view_other_request(request, request_id):
+    request_obj = get_object_or_404(Request, id=request_id, request_type='other')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        response_text = request.POST.get('response_text')
+
+        # עדכון סטטוס ותוכן (מוסיפים את תגובת המזכירות לטקסט)
+        request_obj.status = action
+        request_obj.description += f"\n\n📝 תגובת מזכירות:\n{response_text}"
+        request_obj.save()
+
+        return redirect('secretary_dashboard_other')  # או להפנות לדף אחר אם תרצי
+
+    return render(request, 'secretary_view_other_request.html', {'request_obj': request_obj})
+@login_required
+def submit_military_docs(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        attachment = request.FILES.get('attachment')
+        secretary = User.objects.filter(role='secretary').first()
+
+        Request.objects.create(
+            title=title,
+            description=description,
+            request_type='military_docs',
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+from .models import Course, CourseOffering, StudentCourseEnrollment
+
+@login_required
+def load_request_form(request):
+    request_type = request.GET.get('type')
+    allowed_offerings = []
+
+    student = Student.objects.get(user=request.user)
+    current_year = int(student.current_year_of_study or student.year_of_study)
+    current_sem = student.current_semester or 'A'
+
+    all_offerings = CourseOffering.objects.all()
+
+    if request_type == 'special_exam':
+        # הצג את כל הקורסים של שנים קודמות + הסמסטרים שכבר עברו בשנה הנוכחית
+        for o in all_offerings:
+            if o.year < current_year:
+                allowed_offerings.append(o)
+            elif o.year == current_year:
+                if current_sem == 'A' and o.semester == 'A':
+                    allowed_offerings.append(o)
+                elif current_sem == 'B':
+                    allowed_offerings.append(o)  # גם A וגם B
+
+    elif request_type == 'delay_submission':
+        # רק קורסים של השנה הנוכחית, כל הסמסטרים
+        for o in all_offerings:
+            if o.year == current_year:
+                allowed_offerings.append(o)
+
+    elif request_type in ['prerequisite_exemption', 'course_exemption', 'course_unblock', 'registration_exemption']:
+        allowed_offerings = list(CourseOffering.objects.all())
+
+    elif request_type == 'cancel_hw_percent':
+        # רק קורסים של השנה הנוכחית, כל הסמסטרים
+        for o in all_offerings:
+            if o.year == current_year:
+                allowed_offerings.append(o)
+    elif request_type == 'include_hw_grade':
+        all_offerings = CourseOffering.objects.all()
+        for o in all_offerings:
+            if o.year == current_year:
+                allowed_offerings.append(o)
+    elif request_type == 'iron_swords':
+        all_offerings = CourseOffering.objects.all()
+        for o in all_offerings:
+            if o.year == current_year:
+                allowed_offerings.append(o)
+
+
+    context = {
+        'request_type': request_type,
+        'allowed_offerings': allowed_offerings
+    }
+    return render(request, f'requests_forms/{request_type}.html', context)
+
+
+from django.shortcuts import get_object_or_404
+from .models import Request, Student, CourseOffering, User
+
+@login_required
+def submit_special_exam(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        course_offering_id = request.POST.get('offering_id')
+        attachment = request.FILES.get('attachment')
+
+        course_offering = get_object_or_404(CourseOffering, id=course_offering_id)
+        secretary = User.objects.filter(role='secretary').first()
+
+        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='special_exam',
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+
+
+@login_required
+def submit_course_exemption(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        offering_id = request.POST.get('offering_id')
+        course_offering = get_object_or_404(CourseOffering, id=offering_id)
+
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        attachment = request.FILES.get('attachment')
+
+        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
+        secretary = User.objects.filter(role='secretary').first()
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='course_exemption',
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+@login_required
+def submit_increase_credits(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        attachment = request.FILES.get('attachment')
+        request_type = 'increase_credits'
+
+        secretary = User.objects.filter(role='secretary').first()
+
+        Request.objects.create(
+            title=title,
+            description=description,
+            request_type=request_type,
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+@login_required
+def submit_course_unblock(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        course_name = request.POST.get('course')
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        attachment = request.FILES.get('attachment')
+
+        secretary = User.objects.filter(role='secretary').first()
+        full_title = f"{course_name} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='course_unblock',
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+        return redirect('student_request_history')
+
+@login_required
+def submit_registration_exemption(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        course_name = request.POST.get('course')
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        attachment = request.FILES.get('attachment')
+
+        secretary = User.objects.filter(role='secretary').first()
+        full_title = f"{course_name} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='registration_exemption',
+            student=student,
+            assigned_to=secretary,
+            attachment=attachment if attachment else None
+        )
+        return redirect('student_request_history')
+
+
+@login_required
+def submit_cancel_hw_percent(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        course_offering_id = request.POST.get('offering_id')
+        attachment = request.FILES.get('attachment')
+
+        course_offering = get_object_or_404(CourseOffering, id=course_offering_id)
+        lecturer = course_offering.instructor.user
+
+        full_title = f"{course_offering.course.name} - {lecturer.get_full_name()} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='cancel_hw_percent',
+            student=student,
+            assigned_to=lecturer,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from app.models import Student, CourseOffering, User, Request
+
+
+@login_required
+def submit_delay_submission(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        course_offering_id = request.POST.get('offering_id')
+        attachment = request.FILES.get('attachment')
+
+        course_offering = get_object_or_404(CourseOffering, id=course_offering_id)
+        lecturer = course_offering.instructor.user  # המרצה האחראי
+
+        full_title = f"{course_offering.course.name} - {lecturer.get_full_name()} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='delay_assignment',
+            student=student,
+            assigned_to=lecturer,  # נשלח למרצה
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+
+@login_required
+def submit_include_hw_grade(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        offering_id = request.POST.get('offering_id')
+        attachment = request.FILES.get('attachment')
+
+        course_offering = get_object_or_404(CourseOffering, id=offering_id)
+        instructor = course_offering.instructor.user
+
+        full_title = f"{course_offering.course.name} - {instructor.get_full_name()} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='include_hw_grade',
+            student=student,
+            assigned_to=instructor,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')
+
+@login_required
+def submit_iron_swords(request):
+    if request.method == 'POST':
+        student = get_object_or_404(Student, user=request.user)
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        offering_id = request.POST.get('offering_id')
+        attachment = request.FILES.get('attachment')
+
+        course_offering = get_object_or_404(CourseOffering, id=offering_id)
+        instructor = course_offering.instructor.user
+
+        full_title = f"{course_offering.course.name} - {instructor.get_full_name()} | {title}"
+
+        Request.objects.create(
+            title=full_title,
+            description=description,
+            request_type='iron_swords',
+            student=student,
+            assigned_to=instructor,
+            attachment=attachment if attachment else None
+        )
+
+        return redirect('student_request_history')

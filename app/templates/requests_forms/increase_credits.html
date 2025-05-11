@@ -1,0 +1,91 @@
+
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>בקשה להגדלת נ"ז מעבר למותר</title>
+    <style>
+        main {
+            max-width: 650px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+        }
+
+        h3 {
+            text-align: center;
+            color: #008B8B;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-top: 18px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        textarea,
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #008B8B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 25px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        button:hover {
+            background-color: #006666;
+        }
+        .request-form h3 {
+        text-align: center;
+        margin-bottom: 25px;
+        color: #008B8B;
+    }
+
+    </style>
+</head>
+<body>
+
+<main>
+    <form method="post" action="{% url 'submit_increase_credits' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h3>בקשה להגדלת נ"ז מעבר למותר</h3>
+
+        <input type="hidden" name="request_type" value="increase_credits">
+
+        <label for="title">נושא *</label>
+        <input type="text" name="title" id="title" required>
+
+        <label for="description">תוכן</label>
+        <textarea name="description" id="description" rows="4"></textarea>
+
+        <label for="attachment">צירוף קובץ</label>
+        <input type="file" name="attachment" id="attachment">
+
+        <button type="submit">שלח</button>
+    </form>
+</main>
+
+</body>
+</html>
