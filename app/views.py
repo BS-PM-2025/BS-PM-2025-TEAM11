@@ -170,6 +170,30 @@ def academic_requests_api(request):
 @never_cache
 def secretary_dashboard_other(request):
     return render(request, 'secretary_request_other.html')
+
+@login_required
+@never_cache
+def get_secretary_other_requests(request):
+    requests = Request.objects.filter(request_type='other')
+    data = [
+        {
+            'id': r.id,
+            'title': r.title,
+            'description': r.description,
+            'status': r.status,
+            'submitted_at': r.submitted_at,
+            'student_id': r.student.id_number,
+            'student_username': r.student.user.username,
+            'student_phone': r.student.phone
+        }
+        for r in requests
+    ]
+    return JsonResponse(data, safe=False)
+
+@login_required
+def view_request_details_for_other(request, request_id):
+    req = get_object_or_404(Request, id=request_id)
+    return render(request, 'view_request_details_for_other.html', {'req': req})
 @login_required
 @never_cache
 def secretary_requests_other_api(request):
@@ -384,21 +408,11 @@ def submit_prerequisite_exemption(request):
 from django.shortcuts import get_object_or_404
 
 @login_required
-def secretary_view_other_request(request, request_id):
-    request_obj = get_object_or_404(Request, id=request_id, request_type='other')
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        response_text = request.POST.get('response_text')
+def view_request_details_for_other(request, request_id):
+    req = get_object_or_404(Request, id=request_id, request_type='other')
+    return render(request, 'view_request_details_for_other.html', {'req': req})
 
-        # עדכון סטטוס ותוכן (מוסיפים את תגובת המזכירות לטקסט)
-        request_obj.status = action
-        request_obj.description += f"\n\n📝 תגובת מזכירות:\n{response_text}"
-        request_obj.save()
-
-        return redirect('secretary_dashboard_other')  # או להפנות לדף אחר אם תרצי
-
-    return render(request, 'secretary_view_other_request.html', {'request_obj': request_obj})
 @login_required
 def submit_military_docs(request):
     if request.method == 'POST':
@@ -703,3 +717,7 @@ def submit_iron_swords(request):
         )
 
         return redirect('student_request_history')
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import Request
+

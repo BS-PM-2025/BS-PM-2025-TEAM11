@@ -1,0 +1,94 @@
+{% include 'partials/navbar.html' %}
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>פרטי בקשה - OTHER</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        main {
+            max-width: 700px;
+            margin: 80px auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #008B8B;
+            margin-bottom: 30px;
+        }
+
+        p {
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        strong {
+            color: #333;
+        }
+
+        a.download-link {
+            color: #007BFF;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a.download-link:hover {
+            text-decoration: underline;
+        }
+
+        hr {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+<main>
+  <h2>פרטי בקשה: {{ req.title }}</h2>
+
+  <!-- 🧑 פרטי הסטודנט קודם -->
+  <h3>פרטי הסטודנט</h3>
+  <p><strong>שם משתמש:</strong> {{ req.student.user.username }}</p>
+  <p><strong>תעודת זהות:</strong> {{ req.student.user.id_number }}</p>
+  <p><strong>טלפון:</strong> {{ req.student.user.phone }}</p>
+  <hr>
+
+  <!-- 📄 פרטי הבקשה אחרי -->
+  <p><strong>כותרת הבקשה:</strong> {{ req.title }}</p>
+  <p><strong>תיאור:</strong> {{ req.description|default:"(ללא תיאור)" }}</p>
+  {% with status=req.status %}
+  {% if status == 'pending' %}
+    <p><strong>סטטוס:</strong> <span style="color: orange; font-weight: bold;">ממתין לטיפול</span></p>
+  {% elif status == 'in_progress' %}
+    <p><strong>סטטוס:</strong> <span style="color: dodgerblue; font-weight: bold;">בטיפול</span></p>
+  {% elif status == 'accepted' %}
+    <p><strong>סטטוס:</strong> <span style="color: green; font-weight: bold;">אושרה</span></p>
+  {% elif status == 'rejected' %}
+    <p><strong>סטטוס:</strong> <span style="color: crimson; font-weight: bold;">נדחתה</span></p>
+  {% else %}
+    <p><strong>סטטוס:</strong> {{ req.status }}</p>
+  {% endif %}
+{% endwith %}
+
+  <p><strong>תאריך שליחה:</strong> {{ req.submitted_at|date:"d/m/Y H:i" }}</p>
+
+  {% if req.attachment %}
+    <hr>
+    <h3>קובץ מצורף</h3>
+    <p><a class="download-link" href="{{ req.attachment.url }}" target="_blank">📎 הורד את הקובץ</a></p>
+  {% endif %}
+</main>
+
+{% include 'partials/footer.html' %}
+</body>
+</html>

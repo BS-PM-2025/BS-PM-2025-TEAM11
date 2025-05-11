@@ -20,6 +20,8 @@ urlpatterns = [
     path('api/requests/secretary/', views.secretary_requests_api, name='secretary_requests_api'),
     path('api/requests/academic/', views.academic_requests_api, name='academic_requests_api'),
     path('api/requests/secretary/other/', views.secretary_requests_other_api, name='secretary_requests_other_api'),
+    path('dashboard/secretary/other/', views.secretary_dashboard_other, name='secretary_dashboard_other'),
+    # הדף לבקשות OTHER
     path('logout/', views.logout_view, name='logout'),
     path('send-verification-code/', views.send_verification_code, name='send_verification_code'),
     path('verify-code/', views.verify_code, name='verify_code'),
@@ -27,9 +29,7 @@ urlpatterns = [
     path('final-student-registration/', views.final_student_registration, name='final_student_registration'),
     path('submit/other/', views.submit_other_request, name='submit_other_request'),
     path('load-request-form/', views.load_request_form, name='load_request_form'),
-    path('api/requests/secretary/other/', views.secretary_requests_other_api, name='secretary_requests_other_api'),
     path('submit/prerequisite-exemption/', views.submit_prerequisite_exemption, name='submit_prerequisite_exemption'),
-    path('secretary/request/other/<int:request_id>/', views.secretary_view_other_request, name='secretary_view_other_request'),
    path('submit/military_docs/', views.submit_military_docs, name='submit_military_docs'),
     path('submit/special_exam/', views.submit_special_exam, name='submit_special_exam'),
     path('submit/course_exemption/', views.submit_course_exemption, name='submit_course_exemption'),
@@ -39,7 +39,11 @@ urlpatterns = [
    path('submit/cancel_hw_percent/', views.submit_cancel_hw_percent, name='submit_cancel_hw_percent'),
     path('submit/delay_submission/', views.submit_delay_submission, name='submit_delay_submission'),
    path('submit/include_hw_grade/', views.submit_include_hw_grade, name='submit_include_hw_grade'),
-     path('submit/iron_swords/', views.submit_iron_swords, name='submit_iron_swords'),
+    path('submit/iron_swords/', views.submit_iron_swords, name='submit_iron_swords'),
+   path('api/requests/secretary/other/', views.get_secretary_other_requests, name='get_secretary_other_requests'),
+path('secretary/request/other/<int:request_id>/', views.view_request_details_for_other, name='view_request_details_for_other'),
+
+
 
 
 
