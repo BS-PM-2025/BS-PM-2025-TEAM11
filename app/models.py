@@ -99,6 +99,7 @@ class Request(models.Model):
     assigned_to = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role__in': ['academic', 'secretary']})
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    explanation = models.TextField(blank=True)
 
     def clean(self):
         # ✅ לא לאפשר אישור או דחיה לסוג 'other'

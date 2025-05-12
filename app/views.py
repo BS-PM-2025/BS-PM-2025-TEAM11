@@ -8,7 +8,10 @@ from .models import Request
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
-
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Request
+from django.contrib import messages
 from app.models import Request, Student
 
 from .models import User
@@ -129,6 +132,7 @@ def secretary_requests_api(request):
 
     data = [
         {
+            'id': r.id,
             'title': r.title,
             'description': r.description,
             'status': r.status,
@@ -145,27 +149,39 @@ from django.contrib.auth.decorators import login_required
 from .models import Request
 
 @login_required
-
 @never_cache
 def academic_requests_api(request):
-    # Get status from query parameters
-    status = request.GET.get('status')
-    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
-
-    if status not in valid_statuses:
-        return JsonResponse({'error': 'Invalid status'}, status=400)
-
     user = request.user
-    # Check that the user has 'academic' role
+
+    # Validate user is academic staff
     if not hasattr(user, 'role') or user.role != 'academic':
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # Filter requests assigned to this academic user
-    requests_qs = Request.objects.filter(assigned_to=user, status=status)
+    # Get optional filter by status
+    status = request.GET.get('status')
+    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
 
-    # Serialize and return data
-    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
+    if status and status not in valid_statuses:
+        return JsonResponse({'error': 'Invalid status filter'}, status=400)
+
+    # Filter by status or return all
+    requests_qs = Request.objects.filter(assigned_to=user)
+    if status:
+        requests_qs = requests_qs.filter(status=status)
+
+    # Serialize
+    data = [
+        {
+            'id': r.id,
+            'title': r.title,
+            'description': r.description,
+            'status': r.status,
+            'submitted_at': r.submitted_at,
+        }
+        for r in requests_qs
+    ]
     return JsonResponse(data, safe=False)
+
 @login_required
 @never_cache
 def secretary_dashboard_other(request):
@@ -721,3 +737,55 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import Request
 
+from django.core.mail import send_mail
+from django.conf import settings
+
+@login_required
+def request_detail_update(request, request_id):
+    req = get_object_or_404(Request, id=request_id)
+
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        explanation = request.POST.get('explanation', '')
+
+        if req.request_type != 'other':
+            req.status = status
+            if status != 'in_progress':
+                req.explanation = explanation
+            req.save()
+
+            # ✅ Send email to student
+            subject = f"עדכון סטטוס לבקשה: {req.title}"
+            status_translations = {
+                'accepted': 'אושרה',
+                'rejected': 'נדחתה',
+                'in_progress': 'בטיפול',
+            }
+            translated_status = status_translations.get(status, status)
+            message = f"""
+שלום {req.student.user.username},
+
+הבקשה שלך שכותרתה: "{req.title}" {translated_status}.
+{f'הסבר: {explanation}' if explanation else ''}
+
+בברכה,
+מערכת ניהול בקשות
+            """
+
+            send_mail(
+                subject,
+                message,
+                settings.EMAIL_HOST_USER,
+                [req.student.user.email],
+                fail_silently=False
+            )
+
+        # Redirect based on role
+        if request.user.role == 'secretary':
+            return redirect('secretary_dashboard')
+        elif request.user.role == 'academic':
+            return redirect('academic_dashboard')
+        else:
+            return redirect('home')
+
+    return render(request, 'request_detail_update.html', {'req': req})
