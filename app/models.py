@@ -125,6 +125,7 @@ class Course(models.Model):
         return self.name
 
 
+
 class CourseOffering(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     instructor = models.ForeignKey(AcademicStaff, on_delete=models.CASCADE)

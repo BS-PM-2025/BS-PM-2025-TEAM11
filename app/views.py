@@ -315,7 +315,7 @@ from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
-from .models import Course, StudentCourse
+from .models import Course,StudentCourseEnrollment
 
 from .models import User, Student
 @csrf_exempt
@@ -384,7 +384,7 @@ def final_student_registration(request):
 
                         for course in matching_courses:
                             # יצירת קשר בין סטודנט לקורס
-                            StudentCourse.objects.create(
+                            StudentCourseEnrollment.objects.create(
                                 student=student,
                                 course=course,
                                 academic_year=academic_year,
@@ -451,12 +451,34 @@ def submit_prerequisite_exemption(request):
 
 
 from django.shortcuts import get_object_or_404
+from .models import AcademicStaff
 
 @login_required
-
 def view_request_details_for_other(request, request_id):
     req = get_object_or_404(Request, id=request_id, request_type='other')
-    return render(request, 'view_request_details_for_other.html', {'req': req})
+    academic_staff = list(AcademicStaff.objects.all())
+    include_secretary = request.user  # המזכירה הנוכחית
+
+    if request.method == 'POST':
+        assignee_id = request.POST.get('assignee_id')
+        if assignee_id:
+            assignee = get_object_or_404(User, id=assignee_id)
+            req.assigned_to = assignee
+
+            # 💡 אם היא מעבירה לעצמה, שנה את סוג הבקשה מ-other כדי שיופיע בלוח הרגיל
+            if assignee == request.user:
+                req.request_type = 'manual_transfer'
+
+            req.status = 'pending'
+            req.save()
+            messages.success(request, "הבקשה הועברה בהצלחה.")
+            return redirect('secretary_dashboard')
+
+    return render(request, 'view_request_details_for_other.html', {
+        'req': req,
+        'academic_staff': academic_staff,
+        'include_secretary': include_secretary
+    })
 
 @login_required
 def submit_military_docs(request):

@@ -1,85 +1,99 @@
 {% include 'partials/navbar.html' %}
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>פרטי בקשה - OTHER</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            margin: 0;
-            padding: 0;
-        }
-
-        main {
-            max-width: 700px;
-            margin: 80px auto;
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        h2 {
-            text-align: center;
-            color: #008B8B;
-            margin-bottom: 30px;
-        }
-
-        p {
-            font-size: 16px;
-            margin-bottom: 12px;
-        }
-
-        strong {
-            color: #333;
-        }
-
-        a.download-link {
-            color: #007BFF;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        a.download-link:hover {
-            text-decoration: underline;
-        }
-
-        hr {
-            margin: 20px 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>פרטי בקשה - OTHER</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    main {
+      max-width: 700px;
+      margin: 80px auto;
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #008B8B;
+      margin-bottom: 30px;
+    }
+    p {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    strong {
+      color: #333;
+    }
+    a.download-link {
+      color: #007BFF;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a.download-link:hover {
+      text-decoration: underline;
+    }
+    hr {
+      margin: 20px 0;
+    }
+    .form-section {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 30px;
+    }
+    .form-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    select, button {
+      padding: 8px 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
+    button {
+      background-color: #008B8B;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #006666;
+    }
+  </style>
 </head>
 <body>
+{% if success_message %}
+  <div style="background-color: #d4edda; color: #155724; padding: 12px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #c3e6cb;">
+    {{ success_message }}
+  </div>
+{% endif %}
+
 <main>
   <h2>פרטי בקשה: {{ req.title }}</h2>
 
-  <!-- 🧑 פרטי הסטודנט קודם -->
   <h3>פרטי הסטודנט</h3>
   <p><strong>שם משתמש:</strong> {{ req.student.user.username }}</p>
   <p><strong>תעודת זהות:</strong> {{ req.student.user.id_number }}</p>
   <p><strong>טלפון:</strong> {{ req.student.user.phone }}</p>
   <hr>
 
-  <!-- 📄 פרטי הבקשה אחרי -->
   <p><strong>כותרת הבקשה:</strong> {{ req.title }}</p>
   <p><strong>תיאור:</strong> {{ req.description|default:"(ללא תיאור)" }}</p>
-  {% with status=req.status %}
-  {% if status == 'pending' %}
-    <p><strong>סטטוס:</strong> <span style="color: orange; font-weight: bold;">ממתין לטיפול</span></p>
-  {% elif status == 'in_progress' %}
-    <p><strong>סטטוס:</strong> <span style="color: dodgerblue; font-weight: bold;">בטיפול</span></p>
-  {% elif status == 'accepted' %}
-    <p><strong>סטטוס:</strong> <span style="color: green; font-weight: bold;">אושרה</span></p>
-  {% elif status == 'rejected' %}
-    <p><strong>סטטוס:</strong> <span style="color: crimson; font-weight: bold;">נדחתה</span></p>
-  {% else %}
-    <p><strong>סטטוס:</strong> {{ req.status }}</p>
-  {% endif %}
-{% endwith %}
-
+  <p><strong>סטטוס:</strong>
+    {% if req.status == 'pending' %}<span style="color: orange; font-weight: bold;">ממתין לטיפול</span>
+    {% elif req.status == 'in_progress' %}<span style="color: dodgerblue; font-weight: bold;">בטיפול</span>
+    {% elif req.status == 'accepted' %}<span style="color: green; font-weight: bold;">אושרה</span>
+    {% elif req.status == 'rejected' %}<span style="color: crimson; font-weight: bold;">נדחתה</span>
+    {% else %}{{ req.status }}{% endif %}
+  </p>
   <p><strong>תאריך שליחה:</strong> {{ req.submitted_at|date:"d/m/Y H:i" }}</p>
 
   {% if req.attachment %}
@@ -87,8 +101,33 @@
     <h3>קובץ מצורף</h3>
     <p><a class="download-link" href="{{ req.attachment.url }}" target="_blank">📎 הורד את הקובץ</a></p>
   {% endif %}
-</main>
 
+  <div class="form-section">
+    <h3>העבר את הבקשה למטפל</h3>
+<form method="post">
+  {% csrf_token %}
+
+  <label for="assignee_id">העבר למטפל:</label>
+  <select name="assignee_id" id="assignee_id" required>
+    <!-- אפשרות להעביר למרצה -->
+    {% for staff in academic_staff %}
+      <option value="{{ staff.user.id }}">
+        {{ staff.user.get_full_name }} (מרצה)
+      </option>
+    {% endfor %}
+
+    <!-- אפשרות להעביר למזכירה -->
+    <option value="{{ include_secretary.id }}">
+      {{ include_secretary.get_full_name }} (מזכירה - אני)
+    </option>
+  </select>
+
+  <button type="submit">העבר</button>
+</form>
+
+  </div>
+
+</main>
 {% include 'partials/footer.html' %}
 </body>
 </html>
