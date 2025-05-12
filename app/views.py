@@ -299,9 +299,9 @@ from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+from .models import Course, StudentCourse
 
 from .models import User, Student
-
 @csrf_exempt
 def final_student_registration(request):
     if request.method == 'POST':
@@ -325,12 +325,12 @@ def final_student_registration(request):
                 password=make_password(data['password']),
                 first_name=data['first_name'],
                 last_name=data['last_name'],
-                role='student'  # אם את משתמשת בשדה כזה
+                role='student'
             )
 
-            # 🎓 יצירת סטודנט
+            # 🎓 יצירת סטודנט (כעת נשמר למשתנה)
             education = data.get('education', {})
-            Student.objects.create(
+            student = Student.objects.create(
                 user=user,
                 year_of_study=education.get('start_year'),
                 degree_type=education.get('degree_type'),
@@ -345,6 +345,35 @@ def final_student_registration(request):
                 year4_sem1=education.get('year4_sem1'),
                 year4_sem2=education.get('year4_sem2'),
             )
+
+            # 🧩 שיוך קורסים רלוונטיים לפי שנות לימוד וסמסטרים
+            year_sem_map = {
+                1: [('year1_sem1', 'A'), ('year1_sem2', 'B')],
+                2: [('year2_sem1', 'A'), ('year2_sem2', 'B')],
+                3: [('year3_sem1', 'A'), ('year3_sem2', 'B')],
+                4: [('year4_sem1', 'A'), ('year4_sem2', 'B')],
+            }
+
+            current_year = int(education.get('current_year_of_study', 0))
+
+            for year in range(1, current_year + 1):
+                for field_name, semester_code in year_sem_map[year]:
+                    academic_year = education.get(field_name)
+                    if academic_year:
+                        # שליפת קורסים מתאימים לשנה וסמסטר
+                        matching_courses = Course.objects.filter(
+                            year_of_study=year,
+                            semester=semester_code
+                        )
+
+                        for course in matching_courses:
+                            # יצירת קשר בין סטודנט לקורס
+                            StudentCourse.objects.create(
+                                student=student,
+                                course=course,
+                                academic_year=academic_year,
+                                semester=semester_code
+                            )
 
             return JsonResponse({'status': 'success'})
         except Exception as e:
