@@ -349,3 +349,115 @@ class RegistrationTests(TestCase):
         self.assertTrue(User.objects.filter(username='newstudent').exists())
         self.assertTrue(Student.objects.filter(user__username='newstudent').exists())
 
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.core import mail
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class RequestDetailUpdateTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        # Secretary user
+        self.user = get_user_model().objects.create_user(
+            username='secretary1',
+            password='testpass123',
+            email='secretary@example.com',
+            role='secretary',
+            id_number='123456789',
+            phone='0500000000',
+            department='Test Dept'
+        )
+
+        # Student user
+        self.student_user = get_user_model().objects.create_user(
+            username='student1',
+            password='studentpass',
+            email='student@example.com',
+            role='student',
+            id_number='987654321',
+            phone='0509999999',
+            department='CS'
+        )
+
+        # Create student only if not already present
+        self.student, _ = Student.objects.get_or_create(
+            user=self.student_user,
+            defaults={
+                'year_of_study': 1,
+                'degree_type': 'bachelor'
+            }
+        )
+
+        # Create request assigned to secretary
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='Please approve me',
+            status='pending',
+            request_type='delay_submission',
+            student=self.student,
+            assigned_to=self.user
+        )
+
+    def test_request_status_update_and_email_sent(self):
+        # Login as secretary
+        self.client.login(username='secretary1', password='testpass123')
+
+        # Perform POST to update request
+        response = self.client.post(reverse('request_detail_update', args=[self.req.id]), {
+            'status': 'accepted',
+            'explanation': 'Approved because of valid reason.'
+        })
+
+        # ✅ Check that the request object was updated
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'accepted')
+        self.assertEqual(self.req.explanation, 'Approved because of valid reason.')
+
+        # ✅ Check for redirection after update
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+        # ✅ Check email sent to student
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn('עדכון סטטוס לבקשה', email.subject)
+        self.assertIn('אושרה', email.body)
+        self.assertIn('Approved because of valid reason.', email.body)
+        self.assertEqual(email.to, ['student@example.com'])
+
+    def test_academic_can_update_request(self):
+        # Create academic user
+        academic_user = get_user_model().objects.create_user(
+            username='academic1',
+            password='academicpass',
+            email='academic@example.com',
+            role='academic',
+            id_number='111222333',
+            phone='0501234567',
+            department='Engineering'
+        )
+
+        # Re-assign request to academic
+        self.req.assigned_to = academic_user
+        self.req.save()
+
+        # Login as academic
+        self.client.login(username='academic1', password='academicpass')
+
+        # Perform POST to update request
+        response = self.client.post(reverse('request_detail_update', args=[self.req.id]), {
+            'status': 'rejected',
+            'explanation': 'Not approved due to policy.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'rejected')
+        self.assertEqual(self.req.explanation, 'Not approved due to policy.')
+        self.assertRedirects(response, reverse('academic_dashboard'))
+
+        # Email check
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn('נדחתה', email.body)

@@ -1,10 +1,9 @@
 {% include 'partials/navbar.html' %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>Academic Dashboard</title>
-  <style>
+<title>לוח בקשות </title>  <style>
     body {
       margin: 0;
       padding: 0;
@@ -49,64 +48,100 @@
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-height: 500px;
+      overflow-y: auto;
+      margin-top: 10px;
     }
 
     #request-list div {
       margin-bottom: 20px;
     }
 
-    hr {
-      margin: 10px 0;
+    .view-btn {
+      margin-top: 10px;
+      background-color: #008B8B;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
     }
+
+    .view-btn:hover {
+      background-color: #006666;
+    }
+
+    hr { margin: 10px 0; }
   </style>
 </head>
 <body>
 
-  <h1>Academic Dashboard</h1>
+<h1>📘 בקשות שמיועדות אליי</h1>
 
-  <div class="main-content">
-    <button class="request-button" id="my-requests-button">My Requests</button>
+<div class="main-content">
+  <button class="request-button" id="my-requests-button">הבקשות שלי</button>
 
-    <div id="request-list">
-      <p>Click the button above to load your requests.</p>
-    </div>
+  <div id="request-list">
+    <p>לחץ על הכפתור כדי להציג את הבקשות שלך.</p>
   </div>
+</div>
 
-  <script>
-    function loadAcademicRequests() {
-      fetch(`/api/requests/academic/?status=pending`)  // Use a valid status (e.g., pending)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not OK');
-          }
-          return response.json();
-        })
-        .then(data => {
-          const container = document.getElementById('request-list');
-          container.innerHTML = '';
+<script>
+function loadAcademicRequests() {
+  fetch(`/api/requests/academic/?status=pending`)
+    .then(response => response.json())
+    .then(data => {
+      const container = document.getElementById('request-list');
+      container.innerHTML = '';
 
-          if (data.length === 0) {
-            container.innerHTML = '<p>No requests found.</p>';
-          } else {
-            data.forEach(req => {
-              const div = document.createElement('div');
-              div.innerHTML = `
-                <hr>
-                <strong>${req.title}</strong> - ${req.status}<br>
-                ${req.description}<br>
-                <small>${new Date(req.submitted_at).toLocaleString()}</small>
-              `;
-              container.appendChild(div);
-            });
-          }
-        })
-        .catch(error => {
-          console.error('Error loading requests:', error);
-          document.getElementById('request-list').innerHTML = `<p style="color:red;">Error loading requests: ${error}</p>`;
-        });
-    }
+      if (data.length === 0) {
+        container.innerHTML = '<p>לא נמצאו בקשות.</p>';
+        return;
+      }
 
-    document.getElementById('my-requests-button').addEventListener('click', loadAcademicRequests);
-  </script>
+      data.forEach(req => {
+        let translatedStatus = '';
+        let statusColor = '';
+        switch (req.status) {
+          case 'pending':
+            translatedStatus = 'ממתין לטיפול';
+            statusColor = 'orange';
+            break;
+          case 'in_progress':
+            translatedStatus = 'בטיפול';
+            statusColor = 'dodgerblue';
+            break;
+          case 'accepted':
+            translatedStatus = 'אושרה';
+            statusColor = 'green';
+            break;
+          case 'rejected':
+            translatedStatus = 'נדחתה';
+            statusColor = 'crimson';
+            break;
+          default:
+            translatedStatus = req.status;
+            statusColor = 'gray';
+        }
+
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <hr>
+          <strong>${req.title}</strong> -
+          <span style="color:${statusColor}; font-weight:bold;">${translatedStatus}</span><br>
+          ${req.description}<br>
+          <small>${new Date(req.submitted_at).toLocaleString()}</small><br>
+          <button class="view-btn" onclick="location.href='/requests/${req.id}/'">צפייה</button>
+        `;
+        container.appendChild(div);
+      });
+    })
+    .catch(error => {
+      document.getElementById('request-list').innerHTML = `<p style="color:red;">שגיאה בטעינת הבקשות: ${error}</p>`;
+    });
+}
+
+document.getElementById('my-requests-button').addEventListener('click', loadAcademicRequests);
+</script>
 </body>
 </html>

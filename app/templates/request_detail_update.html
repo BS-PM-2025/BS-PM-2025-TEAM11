@@ -1,0 +1,168 @@
+{% include 'partials/navbar.html' %}
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>פרטי בקשה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        main {
+            max-width: 750px;
+            margin: 50px auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #008B8B;
+            text-align: center;
+        }
+        p {
+            margin: 10px 0;
+        }
+        .status-btn {
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .accept { background-color: green; color: white; }
+        .reject { background-color: crimson; color: white; }
+        .progress { background-color: dodgerblue; color: white; }
+
+        #explanation-container {
+            margin-top: 20px;
+            display: none;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            resize: none;
+        }
+
+        .submit-btn {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #008B8B;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .status-btn {
+  padding: 10px 20px;
+  margin: 0 5px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.status-btn.accept {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-btn.reject {
+  background-color: #dc3545;
+  color: white;
+}
+
+.status-btn.progress {
+  background-color: #007bff;
+  color: white;
+}
+
+.status-btn:hover {
+  opacity: 0.85;
+}
+
+#explanation-container {
+  margin-top: 20px;
+}
+
+#explanation-textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+    </style>
+</head>
+<body>
+<main>
+    <h2>פרטי בקשה: {{ req.title }}</h2>
+
+    <p><strong>שם משתמש:</strong> {{ req.student.user.username }}</p>
+    <p><strong>ת"ז:</strong> {{ req.student.user.id_number }}</p>
+    <p><strong>טלפון:</strong> {{ req.student.user.phone }}</p>
+    <p><strong>תיאור:</strong> {{ req.description|default:"(ללא תיאור)" }}</p>
+    <p><strong>סטטוס:</strong>
+        {% if req.status == 'pending' %}<span style="color:orange;">ממתין לטיפול</span>
+        {% elif req.status == 'accepted' %}<span style="color:green;">אושרה</span>
+        {% elif req.status == 'rejected' %}<span style="color:crimson;">נדחתה</span>
+        {% elif req.status == 'in_progress' %}<span style="color:dodgerblue;">בטיפול</span>
+        {% endif %}
+    </p>
+    <p><strong>תאריך שליחה:</strong> {{ req.submitted_at|date:"d/m/Y H:i" }}</p>
+
+    {% if req.attachment %}
+        <p><strong>קובץ מצורף:</strong> <a href="{{ req.attachment.url }}" target="_blank">📎 הורד</a></p>
+    {% endif %}
+
+    {% if req.request_type != 'other' %}
+    <form method="POST" id="status-form">
+  {% csrf_token %}
+  <input type="hidden" name="status" id="status-input">
+
+  <div>
+    <button type="button" class="status-btn accept" onclick="setStatus('accepted')">✔️ אישור</button>
+    <button type="button" class="status-btn reject" onclick="setStatus('rejected')">❌ דחייה</button>
+    <button type="button" class="status-btn progress" onclick="setStatus('in_progress')">🔄 בטיפול</button>
+  </div>
+
+  <div id="explanation-container" style="display: none;">
+    <label for="explanation-textarea">הסבר:</label>
+    <textarea name="explanation" id="explanation-textarea" rows="4" placeholder="הכנס הסבר כאן..."></textarea><br>
+    <button type="submit" class="status-btn progress" style="margin-top: 10px;">שלח</button>
+  </div>
+</form>
+
+    {% endif %}
+</main>
+
+<script>
+  function setStatus(value) {
+    document.getElementById('status-input').value = value;
+
+    const explanation = document.getElementById('explanation-container');
+
+    if (value === 'accepted' || value === 'rejected') {
+      explanation.style.display = 'block';  // show text area
+    } else if (value === 'in_progress') {
+      explanation.style.display = 'none';   // hide text area
+      document.getElementById('explanation-textarea').value = '';  // clear explanation
+      document.getElementById('status-form').submit(); // auto-submit for in_progress
+    }
+  }
+</script>
+
+</body>
+</html>

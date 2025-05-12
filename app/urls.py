@@ -42,6 +42,7 @@ urlpatterns = [
     path('submit/iron_swords/', views.submit_iron_swords, name='submit_iron_swords'),
    path('api/requests/secretary/other/', views.get_secretary_other_requests, name='get_secretary_other_requests'),
 path('secretary/request/other/<int:request_id>/', views.view_request_details_for_other, name='view_request_details_for_other'),
+path('requests/<int:request_id>/', views.request_detail_update, name='request_detail_update'),
 
 
 
