@@ -210,6 +210,8 @@ def get_secretary_other_requests(request):
 def view_request_details_for_other(request, request_id):
     req = get_object_or_404(Request, id=request_id)
     return render(request, 'view_request_details_for_other.html', {'req': req})
+
+
 @login_required
 @never_cache
 def secretary_requests_other_api(request):
@@ -780,6 +782,7 @@ def request_detail_update(request, request_id):
                 fail_silently=False
             )
 
+
         # Redirect based on role
         if request.user.role == 'secretary':
             return redirect('secretary_dashboard')
@@ -789,3 +792,5 @@ def request_detail_update(request, request_id):
             return redirect('home')
 
     return render(request, 'request_detail_update.html', {'req': req})
+
+
