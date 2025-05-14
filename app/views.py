@@ -8,10 +8,7 @@ from .models import Request
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from .models import Request
-from django.contrib import messages
+
 from app.models import Request, Student
 
 from .models import User
@@ -76,6 +73,11 @@ def academic_request_history_view(request):
 @login_required
 @never_cache
 def secretary_request_history_view(request):
+    requests = Request.objects.filter(
+        assigned_to=request.user,
+        status__in=['accepted', 'rejected', 'in_progress']
+    ).order_by('-submitted_at')
+
     return render(request, 'secretary_request_history.html')
 @login_required
 @never_cache
@@ -107,28 +109,30 @@ def student_dashboard(request):
 
 @login_required
 @never_cache
+
+@login_required
+@never_cache
 def student_request_history_view(request):
     try:
         student_profile = Student.objects.get(user=request.user)
-        requests = Request.objects.filter(student=student_profile).order_by('-submitted_at')
+        requests = Request.objects.filter(
+            student=student_profile,
+            status__in=['pending', 'accepted', 'rejected', 'in_progress']
+        ).order_by('-submitted_at')
     except Student.DoesNotExist:
         requests = []
     return render(request, 'student_request_history.html', {'requests': requests})
 
-
-
 @login_required
 
 @never_cache
-@login_required
-@never_cache
+
 def secretary_requests_api(request):
     user = request.user
-
     requests = Request.objects.filter(
         assigned_to=user,
         status='pending'
-    ).exclude(request_type='other').order_by('-submitted_at')
+    )
 
     data = [
         {
@@ -137,6 +141,9 @@ def secretary_requests_api(request):
             'description': r.description,
             'status': r.status,
             'submitted_at': r.submitted_at,
+            'request_type': r.request_type,
+            'assigned_to': r.assigned_to.id,  # ✅ חשוב להשוות בצד לקוח
+            'secretary_id': user.id  # ✅ ה-ID של המזכירה הנוכחית
         }
         for r in requests
     ]
@@ -149,48 +156,43 @@ from django.contrib.auth.decorators import login_required
 from .models import Request
 
 @login_required
+
 @never_cache
 def academic_requests_api(request):
-    user = request.user
-
-    # Validate user is academic staff
-    if not hasattr(user, 'role') or user.role != 'academic':
-        return JsonResponse({'error': 'Unauthorized'}, status=403)
-
-    # Get optional filter by status
+    # Get status from query parameters
     status = request.GET.get('status')
     valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
 
-    if status and status not in valid_statuses:
-        return JsonResponse({'error': 'Invalid status filter'}, status=400)
+    if status not in valid_statuses:
+        return JsonResponse({'error': 'Invalid status'}, status=400)
 
-    # Filter by status or return all
-    requests_qs = Request.objects.filter(assigned_to=user)
-    if status:
-        requests_qs = requests_qs.filter(status=status)
+    user = request.user
+    # Check that the user has 'academic' role
+    if not hasattr(user, 'role') or user.role != 'academic':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # Serialize
-    data = [
-        {
-            'id': r.id,
-            'title': r.title,
-            'description': r.description,
-            'status': r.status,
-            'submitted_at': r.submitted_at,
-        }
-        for r in requests_qs
-    ]
+    # Filter requests assigned to this academic user
+    requests_qs = Request.objects.filter(assigned_to=user, status=status)
+
+    # Serialize and return data
+    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
     return JsonResponse(data, safe=False)
-
 @login_required
 @never_cache
 def secretary_dashboard_other(request):
+    requests = Request.objects.filter(assigned_to=request.user, status__in=['pending', 'in_progress'])
     return render(request, 'secretary_request_other.html')
 
 @login_required
 @never_cache
 def get_secretary_other_requests(request):
-    requests = Request.objects.filter(request_type='other')
+    requests = Request.objects.filter(
+        request_type='other',
+        assigned_to=request.user,
+        status='pending',
+        assigned_to__role='secretary'
+    ).exclude(student__user=request.user)  # ✅ הוספת תנאי שמבטיח שלא יכלול בקשות שהמזכירה עצמה העבירה לעצמה
+
     data = [
         {
             'id': r.id,
@@ -203,13 +205,11 @@ def get_secretary_other_requests(request):
             'student_phone': r.student.phone
         }
         for r in requests
+
     ]
     return JsonResponse(data, safe=False)
 
-@login_required
-def view_request_details_for_other(request, request_id):
-    req = get_object_or_404(Request, id=request_id)
-    return render(request, 'view_request_details_for_other.html', {'req': req})
+
 @login_required
 @never_cache
 def secretary_requests_other_api(request):
@@ -219,7 +219,7 @@ def secretary_requests_other_api(request):
     requests = Request.objects.filter(
         assigned_to=request.user,
         request_type='other',
-        status='pending'
+        status='pending'  # ✅ רק בקשות שממתינות אצל המזכירה
     ).order_by('-submitted_at')
 
     data = [
@@ -231,7 +231,10 @@ def secretary_requests_other_api(request):
             'submitted_at': r.submitted_at,
             'student_username': r.student.user.username,
             'student_id': r.student.user.id_number,
-            'student_phone': r.student.user.phone
+            'student_phone': r.student.user.phone,
+            'request_type': r.request_type,
+            'assigned_to': r.assigned_to.id,
+            'secretary_id': request.user.id
         }
         for r in requests
     ]
@@ -315,9 +318,9 @@ from django.contrib.auth.hashers import make_password
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
-from .models import Course,StudentCourseEnrollment
+from .models import Course
 
-from .models import User, Student
+from .models import User, Student, StudentCourseEnrollment,CourseOffering
 @csrf_exempt
 def final_student_registration(request):
     if request.method == 'POST':
@@ -449,36 +452,6 @@ def submit_prerequisite_exemption(request):
 
         return redirect('student_request_history')
 
-
-from django.shortcuts import get_object_or_404
-from .models import AcademicStaff
-
-@login_required
-def view_request_details_for_other(request, request_id):
-    req = get_object_or_404(Request, id=request_id, request_type='other')
-    academic_staff = list(AcademicStaff.objects.all())
-    include_secretary = request.user  # המזכירה הנוכחית
-
-    if request.method == 'POST':
-        assignee_id = request.POST.get('assignee_id')
-        if assignee_id:
-            assignee = get_object_or_404(User, id=assignee_id)
-            req.assigned_to = assignee
-
-            # 💡 אם היא מעבירה לעצמה, שנה את סוג הבקשה מ-other כדי שיופיע בלוח הרגיל
-            if assignee == request.user:
-                req.request_type = 'manual_transfer'
-
-            req.status = 'pending'
-            req.save()
-            messages.success(request, "הבקשה הועברה בהצלחה.")
-            return redirect('secretary_dashboard')
-
-    return render(request, 'view_request_details_for_other.html', {
-        'req': req,
-        'academic_staff': academic_staff,
-        'include_secretary': include_secretary
-    })
 
 @login_required
 def submit_military_docs(request):
@@ -787,9 +760,10 @@ def submit_iron_swords(request):
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import Request
-
 from django.core.mail import send_mail
 from django.conf import settings
+
+
 
 @login_required
 def request_detail_update(request, request_id):
@@ -799,7 +773,17 @@ def request_detail_update(request, request_id):
         status = request.POST.get('status')
         explanation = request.POST.get('explanation', '')
 
-        if req.request_type != 'other':
+        # במקום לבדוק רק את התפקיד
+        if req.request_type == 'other' and status in ['accepted', 'rejected']:
+            # בדיקה אם היא עדיין אצל המזכירה המקורית
+            original_secretary = User.objects.filter(role='secretary').first()
+            if req.assigned_to == original_secretary:
+                messages.error(request,
+                               "לא ניתן לאשר או לדחות בקשה מסוג 'אחר' כל עוד היא אצל המזכירה המקורית. יש להעבירה קודם.")
+                return redirect(request.path)
+
+        # ✅ Allow status updates if user is the assigned_to
+        if request.user == req.assigned_to:
             req.status = status
             if status != 'in_progress':
                 req.explanation = explanation
@@ -840,3 +824,38 @@ def request_detail_update(request, request_id):
             return redirect('home')
 
     return render(request, 'request_detail_update.html', {'req': req})
+
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from app.models import Request, User
+
+from app.models import User, Student, Request, AcademicStaff
+
+@login_required
+def view_request_details_for_other(request, request_id):
+    req = get_object_or_404(Request, id=request_id, request_type='other')
+
+    # ✅ שליפת כל המרצים הקיימים לפי המודל AcademicStaff
+    academic_users = [staff.user for staff in AcademicStaff.objects.all()]
+    include_secretary = request.user
+    success_message = None
+
+    if request.method == 'POST':
+        assignee_id = request.POST.get('assignee_id')
+        if assignee_id:
+            assignee = get_object_or_404(User, id=assignee_id)
+
+            # ✅ תמיד מעדכנים את המטופל החדש, גם אם זו אותה המזכירה
+            req.assigned_to = assignee
+            req.status = 'pending'
+            req.save()
+
+            messages.success(request, "הבקשה הועברה בהצלחה.")
+            return redirect('secretary_dashboard_other')
+
+    return render(request, 'view_request_details_for_other.html', {
+        'req': req,
+        'academic_staff': academic_users,
+        'include_secretary': include_secretary
+    })

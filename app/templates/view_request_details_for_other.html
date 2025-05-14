@@ -111,9 +111,11 @@
   <select name="assignee_id" id="assignee_id" required>
     <!-- אפשרות להעביר למרצה -->
     {% for staff in academic_staff %}
-      <option value="{{ staff.user.id }}">
-        {{ staff.user.get_full_name }} (מרצה)
-      </option>
+<option value="{{ staff.id }}">
+  {{ staff.get_full_name }} (מרצה)
+</option>
+
+
     {% endfor %}
 
     <!-- אפשרות להעביר למזכירה -->

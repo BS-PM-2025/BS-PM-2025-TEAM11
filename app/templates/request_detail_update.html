@@ -127,8 +127,10 @@
         <p><strong>קובץ מצורף:</strong> <a href="{{ req.attachment.url }}" target="_blank">📎 הורד</a></p>
     {% endif %}
 
-    {% if req.request_type != 'other' %}
-    <form method="POST" id="status-form">
+
+
+     <form method="POST" id="status-form">
+
   {% csrf_token %}
   <input type="hidden" name="status" id="status-input">
 
@@ -145,7 +147,7 @@
   </div>
 </form>
 
-    {% endif %}
+
 </main>
 
 <script>

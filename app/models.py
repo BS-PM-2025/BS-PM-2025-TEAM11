@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.core.exceptions import ValidationError
-
+from django.contrib.auth import get_user_model  # ✅ זה כאן ולא בתוך class
 # Create your models here.
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -102,9 +102,9 @@ class Request(models.Model):
     explanation = models.TextField(blank=True)
 
     def clean(self):
-        # ✅ לא לאפשר אישור או דחיה לסוג 'other'
         if self.request_type == 'other' and self.status in ['accepted', 'rejected']:
-            raise ValidationError("Cannot accept or reject a request of type 'Other'. It must be forwarded only.")
+            if self.assigned_to.role == 'secretary':
+                raise ValidationError("לא ניתן לאשר או לדחות בקשה מסוג 'אחר' כל עוד היא אצל המזכירה. יש להעבירה קודם.")
 
     def save(self, *args, **kwargs):
         self.clean()
