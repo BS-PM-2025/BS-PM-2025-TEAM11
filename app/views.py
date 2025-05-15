@@ -123,16 +123,22 @@ def student_request_history_view(request):
         requests = []
     return render(request, 'student_request_history.html', {'requests': requests})
 
+
+
+from django.views.decorators.cache import never_cache
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from app.models import Request
+
 @login_required
-
 @never_cache
-
 def secretary_requests_api(request):
     user = request.user
+
     requests = Request.objects.filter(
         assigned_to=user,
         status='pending'
-    )
+    ).exclude(request_type='other')  # ✅ exclude "other" requests
 
     data = [
         {
@@ -142,14 +148,13 @@ def secretary_requests_api(request):
             'status': r.status,
             'submitted_at': r.submitted_at,
             'request_type': r.request_type,
-            'assigned_to': r.assigned_to.id,  # ✅ חשוב להשוות בצד לקוח
-            'secretary_id': user.id  # ✅ ה-ID של המזכירה הנוכחית
+            'assigned_to': r.assigned_to.id,
+            'secretary_id': user.id
         }
         for r in requests
     ]
 
     return JsonResponse(data, safe=False)
-
 
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required

@@ -44,6 +44,21 @@
     min-width: 130px; /* Optional: keeps buttons same width */
 }
 
+.view-btn {
+  margin-top: 10px;
+  background-color: #008B8B;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.view-btn:hover {
+  background-color: #006666;
+}
+
 .category-buttons button:hover {
     background-color: #f2f2f2;
 }
@@ -129,13 +144,14 @@ footer {
                     } else {
                         let html = '';
                         data.forEach(request => {
-                            html += `
-                                <div class="request-box">
-                                    <strong>${request.title}</strong><br>
-                                    <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
-                                    <small><strong>Status:</strong> ${request.status}</small>
-                                </div>
-                            `;
+                             html += `
+    <div class="request-box">
+        <strong>${request.title}</strong><br>
+        <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
+        <small><strong>Status:</strong> ${request.status}</small><br>
+        ${request.status === 'in_progress' ? `<a href="/requests/${request.id}/" class="view-btn">צפייה</a>` : ''}
+    </div>
+`;
                         });
                         container.innerHTML = html;
                     }

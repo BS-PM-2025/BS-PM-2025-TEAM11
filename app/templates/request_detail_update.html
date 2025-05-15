@@ -134,11 +134,16 @@
   {% csrf_token %}
   <input type="hidden" name="status" id="status-input">
 
+  {% if req.request_type != 'other' or request.user.role != 'secretary' %}
   <div>
     <button type="button" class="status-btn accept" onclick="setStatus('accepted')">✔️ אישור</button>
     <button type="button" class="status-btn reject" onclick="setStatus('rejected')">❌ דחייה</button>
-    <button type="button" class="status-btn progress" onclick="setStatus('in_progress')">🔄 בטיפול</button>
+    {% if req.status != 'in_progress' %}
+      <button type="button" class="status-btn progress" onclick="setStatus('in_progress')">🔄 בטיפול</button>
+    {% endif %}
   </div>
+{% endif %}
+
 
   <div id="explanation-container" style="display: none;">
     <label for="explanation-textarea">הסבר:</label>
