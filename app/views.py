@@ -854,6 +854,9 @@ def view_request_details_for_other(request, request_id):
             # ✅ תמיד מעדכנים את המטופל החדש, גם אם זו אותה המזכירה
             req.assigned_to = assignee
             req.status = 'pending'
+            # אם מעבירים למזכירה עצמה => עדכן את סוג הבקשה
+            if assignee == request.user:
+                req.request_type = 'internal_forwarded'
             req.save()
 
             messages.success(request, "הבקשה הועברה בהצלחה.")
