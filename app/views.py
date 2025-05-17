@@ -867,3 +867,5 @@ def view_request_details_for_other(request, request_id):
         'academic_staff': academic_users,
         'include_secretary': include_secretary
     })
+
+
