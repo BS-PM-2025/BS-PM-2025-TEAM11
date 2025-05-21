@@ -236,30 +236,189 @@
         const error = document.getElementById("emailError");
 
         if (!email.endsWith("@ac.sce.ac.il")) {
+            error.innerText = "Invalid institutional email";
             error.style.display = "block";
-        } else {
-            error.style.display = "none";
-            fetch('/send-verification-code/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': getCSRFToken()
-                },
-                body: `email=${encodeURIComponent(email)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    showVerificationStep(email);
-                } else if (data.status === 'exists') {
+            return;
+        }
+
+        // שליחה ל־check-email-role
+        fetch('/check-email-role/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: `email=${encodeURIComponent(email)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'exists') {
                 error.innerText = "This email is already registered.";
                 error.style.display = "block";
-            } else {
-                alert("Failed to send verification email.");
-            }
-            });
-        }
+            } else if (data.status === 'ok') {
+                error.style.display = "none";
+                if (data.role === 'student') {
+                    // כמו קודם
+                    sendVerificationCode(email, 'student');
+                } else if (data.role === 'academic') {
+                    sendVerificationCode(email, 'academic');
+                }
+                } else {
+                    error.innerText = data.message || "Failed to check email.";
+                    error.style.display = "block";
+                }
+
+        });
     }
+    function sendVerificationCode(email, role) {
+        fetch('/send-verification-code/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: `email=${encodeURIComponent(email)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                if (role === 'student') {
+                    showVerificationStep(email); // קיים כבר
+                } else if (role === 'academic') {
+                    showAcademicVerificationStep(email); // נגדיר עכשיו
+                }
+            } else {
+                alert("Failed to send verification code.");
+            }
+        });
+    }
+    function showAcademicVerificationStep(email) {
+        verifiedEmail = email;
+        const container = document.getElementById("formContainer");
+        container.innerHTML = `
+            <h2>Academic Email Verification</h2>
+            <p>A code was sent to: <b>${email}</b></p>
+            <form id="codeForm">
+                <label for="code">Enter the code</label>
+                <input type="text" id="code" name="code" placeholder="123456">
+                <p id="codeError" style="color:red; font-size:13px; display:none;">Incorrect verification code</p>
+                <button type="button" onclick="checkAcademicVerificationCode()">Verify</button>
+            </form>
+        `;
+    }
+    function checkAcademicVerificationCode() {
+        let code = document.getElementById("code").value.trim();
+        const error = document.getElementById("codeError");
+
+        fetch('/verify-code/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: `code=${encodeURIComponent(code)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                error.style.display = "none";
+                showAcademicDetailsForm(verifiedEmail); // לבנות אותו בשלב הבא
+            } else {
+                error.style.display = "block";
+            }
+        });
+    }
+
+    let pendingAcademicRegistration = null;
+
+    function showAcademicDetailsForm(email) {
+        const username = email.split('@')[0];
+        const container = document.getElementById("formContainer");
+
+        container.innerHTML = `
+            <h2>Academic Staff Registration</h2>
+            <form id="academicDetailsForm">
+                <label for="first_name">First Name</label>
+                <input type="text" id="first_name" required>
+
+                <label for="last_name">Last Name</label>
+                <input type="text" id="last_name" required>
+
+                <label for="id_number">ID Number</label>
+                <input type="text" id="id_number" required>
+
+                <label for="phone">Phone Number</label>
+                <input type="text" id="phone" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" required>
+
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" required>
+
+                <input type="hidden" id="email" value="${email}">
+                <input type="hidden" id="username" value="${username}">
+
+                <p id="academicFormError" style="color:red; display:none;"></p>
+                <button type="button" onclick="submitAcademicDetails()">Next</button>
+            </form>
+        `;
+    }
+    function submitAcademicDetails() {
+        const form = document.getElementById("academicDetailsForm");
+        const error = document.getElementById("academicFormError");
+
+        const data = {
+            first_name: form.first_name.value.trim(),
+            last_name: form.last_name.value.trim(),
+            id_number: form.id_number.value.trim(),
+            phone: form.phone.value.trim(),
+            password: form.password.value,
+            confirm_password: form.confirm_password.value,
+            email: form.email.value.trim(),
+            username: form.username.value.trim()
+        };
+
+        // בדיקות בסיסיות
+        if (!data.first_name || !data.last_name || !data.id_number || !data.phone || !data.password || !data.confirm_password) {
+            error.innerText = "Please fill in all required fields.";
+            error.style.display = "block";
+            return;
+        }
+
+        if (data.password !== data.confirm_password) {
+            error.innerText = "Passwords do not match.";
+            error.style.display = "block";
+            return;
+        }
+
+        // שמירה זמנית בזיכרון (לקראת שליחה בשלב האחרון)
+        pendingAcademicRegistration = data;
+        error.style.display = "none";
+        showCoursesForm(); // ➕ זה השלב הבא שנבנה עכשיו
+    }
+    let selectedCourseCount = 0;
+
+    function showCoursesForm() {
+        const container = document.getElementById("formContainer");
+
+        container.innerHTML = `
+            <h2>Course Teaching Details</h2>
+            <form id="coursesForm">
+                <label for="course_count">How many courses do you teach?</label>
+                <select id="course_count" required onchange="generateCourseFields()">
+                    <option value="">Select number</option>
+                    ${Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}
+                </select>
+
+                <div id="coursesContainer"></div>
+
+                <p id="coursesFormError" style="color:red; display:none;"></p>
+                <button type="button" onclick="submitAcademicRegistration()" style="margin-top: 20px;">Finish Registration</button>
+            </form>
+        `;
+    }
+
 
     function showVerificationStep(email) {
         verifiedEmail = email;
@@ -275,6 +434,136 @@
             </form>
         `;
     }
+function generateCourseFields() {
+    const count = parseInt(document.getElementById("course_count").value);
+    selectedCourseCount = count;
+    const container = document.getElementById("coursesContainer");
+    container.innerHTML = '';
+
+    fetch('/get-all-courses/')
+        .then(response => response.json())
+        .then(courses => {
+            for (let i = 1; i <= count; i++) {
+                const courseOptions = courses.map(course =>
+                    `<option value="${course.id}">${course.name}</option>`
+                ).join('');
+
+                container.innerHTML += `
+                    <fieldset style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                        <legend>Course ${i}</legend>
+
+                        <label for="course_name_${i}">Course Name</label>
+                        <select id="course_name_${i}" required>
+                            <option value="">Select course</option>
+                            ${courseOptions}
+                        </select>
+
+                        <label for="course_times_${i}">How many times did you teach this course?</label>
+                        <select id="course_times_${i}" onchange="generateSubTeachings(${i})">
+                            <option value="">Select</option>
+                            ${Array.from({ length: 5 }, (_, j) => `<option value="${j + 1}">${j + 1}</option>`).join('')}
+                        </select>
+
+                        <div id="teachings_container_${i}"></div>
+                    </fieldset>
+                `;
+            }
+        })
+        .catch(() => {
+            container.innerHTML = `<p style="color:red;">❌ Failed to load courses.</p>`;
+        });
+}
+function generateSubTeachings(courseIndex) {
+    const count = parseInt(document.getElementById(`course_times_${courseIndex}`).value);
+    const container = document.getElementById(`teachings_container_${courseIndex}`);
+    container.innerHTML = "";
+
+    for (let j = 1; j <= count; j++) {
+        container.innerHTML += `
+            <div style="margin-top:10px;">
+                <strong>Instance ${j}</strong><br>
+                <label>Teaching Year</label>
+                <input type="text" id="teaching_year_${courseIndex}_${j}" placeholder="e.g., 2022-2023" required>
+
+                <label>Semester</label>
+                <select id="teaching_semester_${courseIndex}_${j}" required>
+                    <option value="">Select</option>
+                    <option value="A">Semester A</option>
+                    <option value="B">Semester B</option>
+                </select>
+            </div>
+        `;
+    }
+}
+
+
+function submitAcademicRegistration() {
+    const error = document.getElementById("coursesFormError");
+    const courseData = [];
+
+    for (let i = 1; i <= selectedCourseCount; i++) {
+        const courseId = document.getElementById(`course_name_${i}`).value;
+        const teachingCount = parseInt(document.getElementById(`course_times_${i}`).value);
+
+        if (!courseId || !teachingCount) {
+            error.innerText = `Please select course and number of times for course ${i}`;
+            error.style.display = "block";
+            return;
+        }
+
+        for (let j = 1; j <= teachingCount; j++) {
+            const year = document.getElementById(`teaching_year_${i}_${j}`).value.trim();
+            const semester = document.getElementById(`teaching_semester_${i}_${j}`).value;
+
+            if (!/^(\d{4})-(\d{4})$/.test(year)) {
+                error.innerText = `Course ${i}, Instance ${j}: Invalid year format (must be YYYY-YYYY)`;
+                error.style.display = "block";
+                return;
+            }
+
+            if (!semester) {
+                error.innerText = `Course ${i}, Instance ${j}: Please select semester.`;
+                error.style.display = "block";
+                return;
+            }
+
+            courseData.push({
+                course_id: courseId,
+                teaching_year: year,
+                semester: semester
+            });
+        }
+    }
+
+    const finalData = {
+        ...pendingAcademicRegistration,
+        courses: courseData
+    };
+
+    fetch('/final-academic-registration/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify(finalData)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === 'success') {
+            alert("🎓 Academic registration completed successfully!");
+            location.reload(); // או הפניה לדשבורד
+        } else {
+            error.innerText = result.message || "An error occurred.";
+            error.style.display = "block";
+        }
+    })
+    .catch(() => {
+        error.innerText = "Server error. Please try again.";
+        error.style.display = "block";
+    });
+}
+
 
     function checkVerificationCode() {
         let code = document.getElementById("code").value.trim();

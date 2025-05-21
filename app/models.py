@@ -129,7 +129,7 @@ class Course(models.Model):
 class CourseOffering(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     instructor = models.ForeignKey(AcademicStaff, on_delete=models.CASCADE)
-    year = models.PositiveIntegerField()
+    year = models.CharField(max_length=9)  # כדי לאפשר פורמט "2022-2023"
     semester = models.CharField(max_length=1, choices=[('A', 'A'), ('B', 'B')])
 
     def __str__(self):
@@ -142,3 +142,26 @@ class StudentCourseEnrollment(models.Model):
 
     def __str__(self):
         return f"{self.student.user.username} - {self.offering}"
+class StudentCourse(models.Model):
+    SEMESTER_CHOICES = [
+        ('A', 'סמסטר א'),
+        ('B', 'סמסטר ב'),
+    ]
+
+    student = models.ForeignKey('Student', on_delete=models.CASCADE)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
+
+    academic_year = models.CharField(
+        max_length=9,
+        verbose_name="שנה אקדמית",
+        help_text="פורמט: 2022-2023",
+        null=True,  # ⬅️ זה השינוי הדרוש!
+        blank=True  # ⬅️ כדי לא להכריח למלא בטפסים
+    )
+    semester = models.CharField(max_length=1, choices=SEMESTER_CHOICES, verbose_name="סמסטר")
+
+    class Meta:
+        unique_together = ('student', 'course', 'academic_year', 'semester')
+
+    def __str__(self):
+        return f"{self.student.user.id_number} - {self.course.name} ({self.academic_year}, סמסטר {self.semester})"

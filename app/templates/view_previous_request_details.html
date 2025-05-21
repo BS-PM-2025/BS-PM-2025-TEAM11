@@ -1,0 +1,76 @@
+{% include 'partials/navbar.html' %}
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>פרטי בקשה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background-color: #f4f4f4;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .box {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            margin: auto;
+        }
+
+        h2 {
+            color: #008080;
+            margin-bottom: 20px;
+        }
+
+        p {
+            margin: 10px 0;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .response {
+            margin-top: 25px;
+            background-color: #f1f9f9;
+            padding: 15px;
+            border-left: 5px solid #00a0a0;
+            border-radius: 8px;
+        }
+
+        .status-accepted { color: green; font-weight: bold; }
+        .status-rejected { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>פרטי בקשה</h2>
+
+        <p><span class="label">כותרת:</span> {{ req.title }}</p>
+        <p><span class="label">תיאור:</span> {{ req.description }}</p>
+        <p><span class="label">תאריך הגשה:</span> {{ req.submitted_at|date:"d/m/Y" }}</p>
+        <p><span class="label">סטטוס:</span>
+            {% if req.status == 'accepted' %}
+                <span class="status-accepted">הבקשה התקבלה</span>
+            {% elif req.status == 'rejected' %}
+                <span class="status-rejected">הבקשה נדחתה</span>
+            {% endif %}
+        </p>
+
+        {% if req.explanation %}
+        <div class="response">
+            <strong>תגובה מהמטפל:</strong>
+            <p>{{ req.explanation }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% include 'partials/footer.html' %}
+</body>
+</html>

@@ -43,14 +43,10 @@ urlpatterns = [
    path('api/requests/secretary/other/', views.get_secretary_other_requests, name='get_secretary_other_requests'),
 path('secretary/request/other/<int:request_id>/', views.view_request_details_for_other, name='view_request_other'),
 path('requests/<int:request_id>/', views.request_detail_update, name='request_detail_update'),
-
-
-
-
-
-
-
-
+path('student/request-details/<int:request_id>/', views.view_previous_request_details, name='view_previous_request_details'),
+path('final-academic-registration/', views.final_academic_registration, name='final_academic_registration'),
+    path('check-email-role/', views.check_email_role, name='check_email_role'),
+path('get-all-courses/', views.get_all_courses, name='get_all_courses'),
 
 ]
 

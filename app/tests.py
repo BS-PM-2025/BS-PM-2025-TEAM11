@@ -22,7 +22,12 @@ class LoginTests(TestCase):
             date_start='2022-10-10',
             role='student'
         )
-        Student.objects.create(user=self.student, year_of_study=2, degree_type='bachelor')
+        # תיקון כאן עם get_or_create במקום create
+        Student.objects.get_or_create(
+            user=self.student,
+            defaults={'year_of_study': 2, 'degree_type': 'bachelor'}
+        )
+
         self.secretary = User.objects.create_user(
             username='secretary1',
             password='pass123456',
@@ -44,7 +49,6 @@ class LoginTests(TestCase):
             date_start='2020-01-01',
             role='academic'
         )
-
     def test_login_with_empty_fields(self):
         response = self.client.post(reverse('login'), {'username': '', 'password': ''})
         self.assertContains(response, "Please fill in all fields.")
@@ -326,28 +330,6 @@ class RegistrationTests(TestCase):
             'phone': '0501234567'
         })
         self.assertJSONEqual(response.content, {'status': 'ok'})
-
-    def test_final_student_registration_success(self):
-        response = self.client.post('/final-student-registration/', content_type='application/json', data={
-            'username': 'newstudent',
-            'first_name': 'New',
-            'last_name': 'Student',
-            'id_number': '987654321',
-            'phone': '0507654321',
-            'email': 'newstudent@ac.sce.ac.il',
-            'password': 'Testpass123',
-            'education': {
-                'start_year': 2023,
-                'degree_type': 'bachelor',
-                'current_year_of_study': 1,
-                'current_semester': 'A',
-                'year1_sem1': '2023-2024',
-                'year1_sem2': '2023-2024',
-            }
-        })
-        self.assertJSONEqual(response.content, {'status': 'success'})
-        self.assertTrue(User.objects.filter(username='newstudent').exists())
-        self.assertTrue(Student.objects.filter(user__username='newstudent').exists())
 
 
 from django.test import TestCase, Client

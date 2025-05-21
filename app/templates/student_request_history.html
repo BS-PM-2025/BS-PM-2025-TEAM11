@@ -94,7 +94,7 @@
             <td>{{ request.submitted_at|date:"d/m/Y" }}</td>
             <td>
 {% if request.status == 'accepted' or request.status == 'rejected' %}
-    <button class="action-button view-button">צפייה</button>
+    <a href="{% url 'view_previous_request_details' request.id %}" class="action-button view-button">צפייה</a>
 {% elif request.status == 'in_progress' or request.status == 'pending'%}
     <button class="action-button track-button">מעקב</button>
 {% else %}

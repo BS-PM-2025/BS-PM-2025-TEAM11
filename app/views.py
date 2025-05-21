@@ -332,13 +332,18 @@ def final_student_registration(request):
         try:
             data = json.loads(request.body)
 
-            # 🛑 בדיקה אם המשתמש או הת"ז או הטלפון כבר קיימים
+            # 🛑 בדיקה אם המשתמש או הת"ז או הטלפון כבר קיימים בטבלת User
             if User.objects.filter(email=data['email']).exists():
                 return JsonResponse({'status': 'error', 'message': 'Email already registered.'})
             if User.objects.filter(id_number=data['id_number']).exists():
                 return JsonResponse({'status': 'error', 'message': 'ID already exists.'})
             if User.objects.filter(phone=data['phone']).exists():
                 return JsonResponse({'status': 'error', 'message': 'Phone already exists.'})
+
+            # 🔁 לוודא שאין סטודנט קיים עם אותו user
+            existing_user = User.objects.filter(username=data['username']).first()
+            if existing_user and Student.objects.filter(user=existing_user).exists():
+                return JsonResponse({'status': 'error', 'message': 'Student already exists for this user.'})
 
             # 🧑 יצירת משתמש חדש
             user = User.objects.create(
@@ -352,7 +357,7 @@ def final_student_registration(request):
                 role='student'
             )
 
-            # 🎓 יצירת סטודנט (כעת נשמר למשתנה)
+            # 🎓 יצירת סטודנט
             education = data.get('education', {})
             student = Student.objects.create(
                 user=user,
@@ -370,7 +375,7 @@ def final_student_registration(request):
                 year4_sem2=education.get('year4_sem2'),
             )
 
-            # 🧩 שיוך קורסים רלוונטיים לפי שנות לימוד וסמסטרים
+            # 👩‍🏫 שיוך לקורסים (כפי שהיה)
             year_sem_map = {
                 1: [('year1_sem1', 'A'), ('year1_sem2', 'B')],
                 2: [('year2_sem1', 'A'), ('year2_sem2', 'B')],
@@ -384,25 +389,21 @@ def final_student_registration(request):
                 for field_name, semester_code in year_sem_map[year]:
                     academic_year = education.get(field_name)
                     if academic_year:
-                        # שליפת קורסים מתאימים לשנה וסמסטר
-                        matching_courses = Course.objects.filter(
-                            year_of_study=year,
+                        matching_offerings = CourseOffering.objects.filter(
+                            year=year,
                             semester=semester_code
                         )
 
-                        for course in matching_courses:
-                            # יצירת קשר בין סטודנט לקורס
+                        for offering in matching_offerings:
                             StudentCourseEnrollment.objects.create(
                                 student=student,
-                                course=course,
-                                academic_year=academic_year,
-                                semester=semester_code
+                                offering=offering,
                             )
 
             return JsonResponse({'status': 'success'})
+
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
-
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 
@@ -489,7 +490,9 @@ def load_request_form(request):
     current_year = int(student.current_year_of_study or student.year_of_study)
     current_sem = student.current_semester or 'A'
 
-    all_offerings = CourseOffering.objects.all()
+    all_offerings = CourseOffering.objects.filter(
+        studentcourseenrollment__student=student
+    ).distinct()
 
     if request_type == 'special_exam':
         # הצג את כל הקורסים של שנים קודמות + הסמסטרים שכבר עברו בשנה הנוכחית
@@ -868,4 +871,121 @@ def view_request_details_for_other(request, request_id):
         'include_secretary': include_secretary
     })
 
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import Http404
 
+@login_required
+def view_previous_request_details(request, request_id):
+    student = get_object_or_404(Student, user=request.user)
+    req = get_object_or_404(Request, id=request_id, student=student)
+
+    if req.status not in ['accepted', 'rejected']:
+        raise Http404("Access denied. You can only view completed requests.")
+
+    return render(request, 'view_previous_request_details.html', {
+        'req': req
+    })
+
+
+import csv
+import os
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from .models import User
+
+@csrf_exempt
+def check_email_role(request):
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+
+        # אם קיים כבר במשתמשים
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({'status': 'exists'})
+
+        # 🔍 חיפוש בקובץ המרצים
+        file_path = os.path.join(settings.BASE_DIR, 'app', 'teachers_list.csv')
+        try:
+            with open(file_path, newline='', encoding='utf-8-sig') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    print("🧪 Row:", row)  # הדפסה לבדיקה
+                    print("🧪 Keys:", row.keys())
+                    if row['email'].strip().lower() == email:
+                        return JsonResponse({'status': 'ok', 'role': 'academic'})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+        # לא נמצא בשום מקום – סטודנט חדש
+        return JsonResponse({'status': 'ok', 'role': 'student'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.contrib.auth.hashers import make_password
+import json
+
+from .models import User, AcademicStaff, Course, CourseOffering
+
+@csrf_exempt
+def final_academic_registration(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            # בדיקות כפילויות בסיסיות
+            if User.objects.filter(email=data['email']).exists():
+                return JsonResponse({'status': 'error', 'message': 'Email already registered.'})
+            if User.objects.filter(id_number=data['id_number']).exists():
+                return JsonResponse({'status': 'error', 'message': 'ID already exists.'})
+            if User.objects.filter(phone=data['phone']).exists():
+                return JsonResponse({'status': 'error', 'message': 'Phone already exists.'})
+            if User.objects.filter(username=data['username']).exists():
+                return JsonResponse({'status': 'error', 'message': 'Username already exists.'})
+
+            # 1️⃣ יצירת משתמש עם role = academic
+            user = User.objects.create(
+                username=data['username'],
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                id_number=data['id_number'],
+                phone=data['phone'],
+                email=data['email'],
+                password=make_password(data['password']),
+                role='academic'
+            )
+
+            # 2️⃣ יצירת AcademicStaff
+            academic = AcademicStaff.objects.get(user=user)
+
+            # 3️⃣ קישור לקורסים (courses = רשימת מילונים)
+            courses = data.get('courses', [])
+            for c in courses:
+                course_id = c.get('course_id')
+                year = c.get('teaching_year')
+                semester = c.get('semester')
+
+                course = Course.objects.filter(id=course_id).first()
+                if not course:
+                    continue  # אם הקורס לא קיים – מדלגים
+
+                CourseOffering.objects.create(
+                    course=course,
+                    instructor=academic,
+                    year=year,
+                    semester=semester
+                )
+
+            return JsonResponse({'status': 'success'})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+from django.http import JsonResponse
+from .models import Course
+
+def get_all_courses(request):
+    courses = Course.objects.all().values('id', 'name')
+    return JsonResponse(list(courses), safe=False)
