@@ -119,10 +119,24 @@ class Request(models.Model):
 
 
 class Course(models.Model):
-    name = models.CharField(max_length=100)
+    SEMESTER_CHOICES = [
+        ('A', 'סמסטר א'),
+        ('B', 'סמסטר ב'),
+    ]
+
+    YEAR_OF_STUDY_CHOICES = [
+        (1, 'שנה א'),
+        (2, 'שנה ב'),
+        (3, 'שנה ג'),
+        (4, 'שנה ד'),
+    ]
+
+    name = models.CharField(max_length=255, verbose_name="שם הקורס")
+    semester = models.CharField(max_length=1, choices=SEMESTER_CHOICES, verbose_name="סמסטר לימוד הקורס", null=True)
+    year_of_study = models.IntegerField(choices=YEAR_OF_STUDY_CHOICES, verbose_name="שנת לימוד הקורס", null=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (שנה {self.year_of_study}, סמסטר {self.semester})"
 
 
 
@@ -137,12 +151,6 @@ class CourseOffering(models.Model):
 
 
 class StudentCourseEnrollment(models.Model):
-    student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    offering = models.ForeignKey(CourseOffering, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f"{self.student.user.username} - {self.offering}"
-class StudentCourse(models.Model):
     SEMESTER_CHOICES = [
         ('A', 'סמסטר א'),
         ('B', 'סמסטר ב'),

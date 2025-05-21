@@ -335,34 +335,134 @@
         const username = email.split('@')[0];
         const container = document.getElementById("formContainer");
 
-        container.innerHTML = `
-            <h2>Academic Staff Registration</h2>
-            <form id="academicDetailsForm">
-                <label for="first_name">First Name</label>
-                <input type="text" id="first_name" required>
+     container.innerHTML = `
+        <h2>Academic Staff Registration</h2>
+        <form id="academicDetailsForm">
+            <label for="first_name">First Name</label>
+            <input type="text" id="first_name" required>
+            <span id="first_name_error" class="error-span"></span>
 
-                <label for="last_name">Last Name</label>
-                <input type="text" id="last_name" required>
+            <label for="last_name">Last Name</label>
+            <input type="text" id="last_name" required>
+            <span id="last_name_error" class="error-span"></span>
 
-                <label for="id_number">ID Number</label>
-                <input type="text" id="id_number" required>
+            <label for="id_number">ID Number</label>
+            <input type="text" id="id_number" required>
+            <span id="id_number_error" class="error-span"></span>
 
-                <label for="phone">Phone Number</label>
-                <input type="text" id="phone" required>
+            <label for="phone">Phone Number</label>
+            <input type="text" id="phone" required>
+            <span id="phone_error" class="error-span"></span>
 
-                <label for="password">Password</label>
-                <input type="password" id="password" required>
+            <label for="password">Password</label>
+            <input type="password" id="password" required>
+            <span id="password_error" class="error-span"></span>
 
-                <label for="confirm_password">Confirm Password</label>
-                <input type="password" id="confirm_password" required>
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" required>
+            <span id="confirm_password_error" class="error-span"></span>
 
-                <input type="hidden" id="email" value="${email}">
-                <input type="hidden" id="username" value="${username}">
+            <input type="hidden" id="email" value="${email}">
+            <input type="hidden" id="username" value="${username}">
 
-                <p id="academicFormError" style="color:red; display:none;"></p>
-                <button type="button" onclick="submitAcademicDetails()">Next</button>
-            </form>
-        `;
+            <p id="academicFormError" style="color:red; display:none;"></p>
+            <button type="button" id="nextAcademicBtn" onclick="submitAcademicDetails()" disabled>Next</button>
+        </form>
+        <style>.error-span {color: red; font-size: 12px;}</style>
+    `;
+    const form = document.getElementById("academicDetailsForm");
+    const nextBtn = document.getElementById("nextAcademicBtn");
+
+    form.addEventListener("input", validateAcademicFormLive);
+
+    async function validateAcademicFormLive() {
+        let valid = true;
+
+        const firstName = form.first_name.value.trim();
+        const lastName = form.last_name.value.trim();
+        const idNumber = form.id_number.value.trim();
+        const phone = form.phone.value.trim();
+        const password = form.password.value;
+        const confirmPassword = form.confirm_password.value;
+
+        // ניקוי שגיאות
+        form.querySelectorAll(".error-span").forEach(span => span.innerText = "");
+
+        if (!firstName) {
+            setAcademicError("first_name_error", "First name is required.");
+            valid = false;
+        }
+
+        if (!lastName) {
+            setAcademicError("last_name_error", "Last name is required.");
+            valid = false;
+        }
+
+        // ת"ז
+        if (!/^\d{9}$/.test(idNumber)) {
+            setAcademicError("id_number_error", "ID must be exactly 9 digits.");
+            valid = false;
+        } else {
+            const idExists = await checkAcademicExistence("id_number", idNumber);
+            if (idExists) {
+                setAcademicError("id_number_error", "This ID number already exists.");
+                valid = false;
+            }
+        }
+
+        // טלפון
+        if (!/^\d{10}$/.test(phone)) {
+            setAcademicError("phone_error", "Phone number must be exactly 10 digits.");
+            valid = false;
+        } else {
+            const phoneExists = await checkAcademicExistence("phone", phone);
+            if (phoneExists) {
+                setAcademicError("phone_error", "This phone number already exists.");
+                valid = false;
+            }
+        }
+
+        // סיסמה
+        const lengthValid = password.length >= 8;
+        const upperValid = /[A-Z]/.test(password);
+        const lowerValid = /[a-z]/.test(password);
+        const numberValid = /\d/.test(password);
+        const englishOnly = /^[A-Za-z\d]*$/.test(password);
+
+        if (!(lengthValid && upperValid && lowerValid && numberValid && englishOnly)) {
+            setAcademicError("password_error", "Password must meet all requirements.");
+            valid = false;
+        }
+
+        if (confirmPassword !== password) {
+            setAcademicError("confirm_password_error", "Passwords do not match.");
+            valid = false;
+        }
+
+        nextBtn.disabled = !valid;
+    }
+
+    function setAcademicError(id, msg) {
+        document.getElementById(id).innerText = msg;
+    }
+
+    async function checkAcademicExistence(field, value) {
+        try {
+            const response = await fetch('/check-id-and-phone/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({ [field]: value })
+            });
+            const result = await response.json();
+            return result.status === 'exists';
+        } catch {
+            return false;
+        }
+    }
+
     }
     function submitAcademicDetails() {
         const form = document.getElementById("academicDetailsForm");
@@ -379,22 +479,77 @@
             username: form.username.value.trim()
         };
 
+        // ניקוי שגיאות קודמות
+        form.querySelectorAll(".error-span").forEach(span => span.innerText = "");
+        error.style.display = "none";
+
+        let valid = true;
+
         // בדיקות בסיסיות
-        if (!data.first_name || !data.last_name || !data.id_number || !data.phone || !data.password || !data.confirm_password) {
-            error.innerText = "Please fill in all required fields.";
-            error.style.display = "block";
-            return;
+        if (!data.first_name) {
+            document.getElementById("first_name_error").innerText = "First name is required.";
+            valid = false;
+        }
+
+        if (!data.last_name) {
+            document.getElementById("last_name_error").innerText = "Last name is required.";
+            valid = false;
+        }
+
+        if (!/^\d{9}$/.test(data.id_number)) {
+            document.getElementById("id_number_error").innerText = "ID must be exactly 9 digits.";
+            valid = false;
+        }
+
+        if (!/^\d{10}$/.test(data.phone)) {
+            document.getElementById("phone_error").innerText = "Phone must be exactly 10 digits.";
+            valid = false;
+        }
+
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+        if (!passwordRegex.test(data.password)) {
+            document.getElementById("password_error").innerText = "Password must contain uppercase, lowercase, number, and be 8+ characters.";
+            valid = false;
         }
 
         if (data.password !== data.confirm_password) {
-            error.innerText = "Passwords do not match.";
-            error.style.display = "block";
-            return;
+            document.getElementById("confirm_password_error").innerText = "Passwords do not match.";
+            valid = false;
         }
+
+        if (!valid) return;
+
 
         // שמירה זמנית בזיכרון (לקראת שליחה בשלב האחרון)
         pendingAcademicRegistration = data;
         error.style.display = "none";
+        fetch('/check-id-and-phone/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                id_number: data.id_number,
+                phone: data.phone
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'exists') {
+                error.innerText = result.message;
+                error.style.display = "block";
+            } else {
+                // אם הכול תקין – ממשיכים לשלב הבא
+                pendingAcademicRegistration = data;
+                showCoursesForm();
+            }
+        })
+        .catch(() => {
+            error.innerText = "Server error. Please try again.";
+            error.style.display = "block";
+        });
+
         showCoursesForm(); // ➕ זה השלב הבא שנבנה עכשיו
     }
     let selectedCourseCount = 0;

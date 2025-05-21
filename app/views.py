@@ -332,18 +332,13 @@ def final_student_registration(request):
         try:
             data = json.loads(request.body)
 
-            # 🛑 בדיקה אם המשתמש או הת"ז או הטלפון כבר קיימים בטבלת User
+            # 🛑 בדיקה אם המשתמש או הת"ז או הטלפון כבר קיימים
             if User.objects.filter(email=data['email']).exists():
                 return JsonResponse({'status': 'error', 'message': 'Email already registered.'})
             if User.objects.filter(id_number=data['id_number']).exists():
                 return JsonResponse({'status': 'error', 'message': 'ID already exists.'})
             if User.objects.filter(phone=data['phone']).exists():
                 return JsonResponse({'status': 'error', 'message': 'Phone already exists.'})
-
-            # 🔁 לוודא שאין סטודנט קיים עם אותו user
-            existing_user = User.objects.filter(username=data['username']).first()
-            if existing_user and Student.objects.filter(user=existing_user).exists():
-                return JsonResponse({'status': 'error', 'message': 'Student already exists for this user.'})
 
             # 🧑 יצירת משתמש חדש
             user = User.objects.create(
@@ -357,7 +352,7 @@ def final_student_registration(request):
                 role='student'
             )
 
-            # 🎓 יצירת סטודנט
+            # 🎓 יצירת סטודנט (כעת נשמר למשתנה)
             education = data.get('education', {})
             student = Student.objects.create(
                 user=user,
@@ -375,7 +370,7 @@ def final_student_registration(request):
                 year4_sem2=education.get('year4_sem2'),
             )
 
-            # 👩‍🏫 שיוך לקורסים (כפי שהיה)
+            # 🧩 שיוך קורסים רלוונטיים לפי שנות לימוד וסמסטרים
             year_sem_map = {
                 1: [('year1_sem1', 'A'), ('year1_sem2', 'B')],
                 2: [('year2_sem1', 'A'), ('year2_sem2', 'B')],
@@ -389,21 +384,25 @@ def final_student_registration(request):
                 for field_name, semester_code in year_sem_map[year]:
                     academic_year = education.get(field_name)
                     if academic_year:
-                        matching_offerings = CourseOffering.objects.filter(
-                            year=year,
+                        # שליפת קורסים מתאימים לשנה וסמסטר
+                        matching_courses = Course.objects.filter(
+                            year_of_study=year,
                             semester=semester_code
                         )
 
-                        for offering in matching_offerings:
+                        for course in matching_courses:
+                            # יצירת קשר בין סטודנט לקורס
                             StudentCourseEnrollment.objects.create(
                                 student=student,
-                                offering=offering,
+                                course=course,
+                                academic_year=academic_year,
+                                semester=semester_code
                             )
 
             return JsonResponse({'status': 'success'})
-
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
+
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 
@@ -480,6 +479,7 @@ def submit_military_docs(request):
         return redirect('student_request_history')
 
 from .models import Course, CourseOffering, StudentCourseEnrollment
+from datetime import date
 
 @login_required
 def load_request_form(request):
@@ -487,12 +487,22 @@ def load_request_form(request):
     allowed_offerings = []
 
     student = Student.objects.get(user=request.user)
-    current_year = int(student.current_year_of_study or student.year_of_study)
+    today = date.today()
+    year = today.year
+    month = today.month
+
+    if month >= 10:  # אוקטובר, נובמבר, דצמבר – תחילת שנה אקדמית
+        current_year = f"{year}-{year + 1}"
+    else:  # ינואר עד ספטמבר – עדיין בתוך השנה שהתחילה באוקטובר של השנה הקודמת
+        current_year = f"{year - 1}-{year}"
     current_sem = student.current_semester or 'A'
 
+    all_enrollments = StudentCourseEnrollment.objects.filter(student=student)
     all_offerings = CourseOffering.objects.filter(
-        studentcourseenrollment__student=student
-    ).distinct()
+        course__in=[e.course for e in all_enrollments],
+        year__in=[e.academic_year for e in all_enrollments],
+        semester__in=[e.semester for e in all_enrollments]
+    )
 
     if request_type == 'special_exam':
         # הצג את כל הקורסים של שנים קודמות + הסמסטרים שכבר עברו בשנה הנוכחית

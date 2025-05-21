@@ -265,6 +265,9 @@ from app.models import Student  # החלף לנתיב הנכון אם צריך
 
 User = get_user_model()
 
+from django.test import TestCase, Client
+from app.models import User, Student  # ודאי שיש לך את המודלים האלו מיובאים
+
 class RegistrationTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -275,6 +278,13 @@ class RegistrationTests(TestCase):
             phone="0500000000",
             password="Testpass123",
             role="student"
+        )
+
+        # ❗ מוסיפים את הסטודנט עצמו לפי המודל שלך
+        Student.objects.create(
+            user=self.existing_user,
+            year_of_study=2,
+            degree_type="bachelor"
         )
 
     def test_send_verification_code_valid(self):
