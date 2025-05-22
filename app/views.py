@@ -806,8 +806,8 @@ def request_detail_update(request, request_id):
             if status != 'in_progress':
                 req.explanation = explanation
             req.save()
-
-            # ✅ Send email to student
+            # ✅ Set success message
+            messages.success(request, "הבקשה טופלה בהצלחה והסטודנט קיבל עדכון בדוא\"ל.")            # ✅ Send email to student
             subject = f"עדכון סטטוס לבקשה: {req.title}"
             status_translations = {
                 'accepted': 'אושרה',

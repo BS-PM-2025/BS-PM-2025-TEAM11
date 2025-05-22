@@ -103,10 +103,43 @@
   border-radius: 6px;
   border: 1px solid #ccc;
 }
+.center-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #28a745;
+  color: white;
+  padding: 20px 30px;
+  border-radius: 12px;
+  font-size: 18px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+  text-align: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.center-toast.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hidden {
+  display: none;
+}
+
+
+
 
     </style>
 </head>
 <body>
+<div id="center-toast" class="center-toast hidden">
+  <strong>✅ הבקשה טופלה בהצלחה</strong><br>
+  📬 הסטודנט קיבל עדכון בדוא"ל
+</div>
 <main>
     <h2>פרטי בקשה: {{ req.title }}</h2>
 
@@ -126,10 +159,21 @@
     {% if req.attachment %}
         <p><strong>קובץ מצורף:</strong> <a href="{{ req.attachment.url }}" target="_blank">📎 הורד</a></p>
     {% endif %}
+   {% if messages %}
+  <div id="message-box">
+    {% for message in messages %}
+      <div class="toast-message success">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
 
 
 
-     <form method="POST" id="status-form">
+
+<form method="POST" id="status-form" onsubmit="handleSuccessSubmit(event)">
+
 
   {% csrf_token %}
   <input type="hidden" name="status" id="status-input">
@@ -157,19 +201,40 @@
 
 <script>
   function setStatus(value) {
-    document.getElementById('status-input').value = value;
+      document.getElementById('status-input').value = value;
 
-    const explanation = document.getElementById('explanation-container');
+      const explanation = document.getElementById('explanation-container');
 
-    if (value === 'accepted' || value === 'rejected') {
-      explanation.style.display = 'block';  // show text area
-    } else if (value === 'in_progress') {
-      explanation.style.display = 'none';   // hide text area
-      document.getElementById('explanation-textarea').value = '';  // clear explanation
-      document.getElementById('status-form').submit(); // auto-submit for in_progress
-    }
+      if (value === 'accepted' || value === 'rejected') {
+          explanation.style.display = 'block';  // show text area
+      } else if (value === 'in_progress') {
+          explanation.style.display = 'none';   // hide text area
+          document.getElementById('explanation-textarea').value = '';  // clear explanation
+          document.getElementById('status-form').submit(); // auto-submit for in_progress
+          showToastAndRedirect();
+      }
+
   }
+ function handleSuccessSubmit(e) {
+  e.preventDefault(); // Stop form submission
+
+  const status = document.getElementById("status-input").value;
+  if (!status) {
+    alert("בחרי סטטוס לפני השליחה.");
+    return;
+  }
+
+  const toast = document.getElementById("center-toast");
+  toast.classList.remove("hidden");
+  toast.classList.add("show");
+
+  // Wait 2.5 seconds, then submit form
+  setTimeout(() => {
+    document.getElementById("status-form").submit();
+  }, 2500);
+}
 </script>
+
 
 
 
