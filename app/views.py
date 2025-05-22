@@ -999,3 +999,13 @@ from .models import Course
 def get_all_courses(request):
     courses = Course.objects.all().values('id', 'name')
     return JsonResponse(list(courses), safe=False)
+
+
+from django.shortcuts import render, get_object_or_404
+from app.models import Request
+
+def request_detail_view_academic(request, request_id):
+    req = get_object_or_404(Request, id=request_id)
+    return render(request, 'request_detail_view_academic.html', {
+        'request_obj': req
+    })

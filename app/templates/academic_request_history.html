@@ -92,6 +92,24 @@
 footer {
         margin-top: auto;
     }
+
+.view-btn {
+  display: inline-block;
+  background-color: #008B8B;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.view-btn:hover {
+  background-color: #006666;
+}
+
     </style>
 </head>
 <body>
@@ -149,7 +167,13 @@ footer {
         <strong>${request.title}</strong><br>
         <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
         <small><strong>Status:</strong> ${request.status}</small><br>
-        ${request.status === 'in_progress' ? `<a href="/requests/${request.id}/" class="view-btn">צפייה</a>` : ''}
+${['in_progress', 'accepted', 'rejected'].includes(request.status)
+  ? `<div style="text-align: center; margin-top: 12px;">
+         <a href="/requests/${request.id}/academic/" class="view-btn">צפייה</a>
+     </div>`
+  : ''}
+
+
     </div>
 `;
                         });
