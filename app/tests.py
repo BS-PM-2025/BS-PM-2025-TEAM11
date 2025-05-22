@@ -1018,3 +1018,58 @@ class SubmitInstructorRequestIntegrationTests(TestCase):
 
     def test_submit_iron_swords(self):
         self.post_request('submit_iron_swords', 'iron_swords')
+
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student
+
+User = get_user_model()
+
+from django.contrib.auth import get_user_model
+
+class RequestHistoryIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        User = get_user_model()
+
+        # יצירת משתמש סטודנט
+        self.student_user = User.objects.create_user(
+            username='student1',
+            password='pass123456',
+            id_number='111111111',
+            email='student@example.com',
+            role='student'
+        )
+
+        # יצירת אובייקט Student עם כל השדות החובה
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=2,
+            degree_type='bachelor'
+        )
+
+    def test_back_button_exists_on_history_page(self):
+        # התחברות כסטודנט
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד היסטוריית הבקשות
+        response = self.client.get(reverse('student_request_history'))
+
+        self.assertEqual(response.status_code, 200)
+
+        # בדיקה שהכפתור קיים בקוד ה-HTML עם הקישור הנכון
+        self.assertContains(response, 'class="back-button"')
+        self.assertIn(reverse('student_dashboard'), response.content.decode())
+
+    def test_back_button_redirects_to_correct_page(self):
+        # התחברות
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד שאליו הכפתור אמור להחזיר
+        response = self.client.get(reverse('student_dashboard'))
+
+        # נוודא שהעמוד נגיש
+        self.assertEqual(response.status_code, 200)
