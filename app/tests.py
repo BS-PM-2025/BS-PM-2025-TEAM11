@@ -133,6 +133,46 @@ class RequestAPITests(TestCase):
             request_type='iron_swords'
         )
 
+    def test_secretary_requests_api(self):
+        # Create a test user with the 'secretary' role
+        user = User.objects.create_user(username='testuser', password='password', role='secretary')
+        self.client.login(username='testuser', password='password')
+
+        # Reverse the URL for the secretary request API
+        url = reverse('secretary_requests_api')
+
+        # Now make the API request
+        response = self.client.get(url)
+
+        # Check that the statusu code is 200 (OK)
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_status_for_academic_requests_api(self):
+        """
+        Test the academic API with an invalid status.
+        """
+        self.client.login(username='academic1', password='pass123456')
+
+        # Get the API response with an invalid status
+        response = self.client.get(reverse('academic_requests_api') + '?status=invalid_status')
+
+        # Assert the response status code for invalid status
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {'error': 'Invalid status'})
+
+    def test_unauthorized_access_academic_requests_api(self):
+        """
+        Test that only users with 'academic' role can access the academic API.
+        """
+        self.client.login(username='secretary1', password='pass123456')
+
+        # Get the API response for an academic request while logged in as secretary
+        response = self.client.get(reverse('academic_requests_api') + '?status=pending')
+
+        # Assert that unauthorized access is denied
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json(), {'error': 'Unauthorized'})
+
 
     def test_api_returns_only_assigned_requests(self):
         self.client.login(username='academic1', password='pass123456')
