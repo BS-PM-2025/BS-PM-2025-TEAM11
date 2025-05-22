@@ -69,7 +69,6 @@ class LoginTests(TestCase):
         response = self.client.post(reverse('login'), {'username': 'academic1', 'password': 'pass123456'})
         self.assertRedirects(response, reverse('academic_dashboard'))
 
-
 class RequestAPITests(TestCase):
     def setUp(self):
         User = get_user_model()
@@ -134,46 +133,6 @@ class RequestAPITests(TestCase):
             request_type='iron_swords'
         )
 
-    def test_api_returns_only_assigned_requests(self):
-        self.client.login(username='academic1', password='pass123456')
-        response = self.client.get('/api/requests/?status=pending')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 2)
-        self.assertEqual(response.json()[0]['status'], 'pending')
-
-    def test_api_rejects_invalid_status(self):
-        self.client.login(username='academic1', password='pass123456')
-        response = self.client.get('/api/requests/?status=invalid')
-        self.assertEqual(response.status_code, 400)
-
-    def test_api_requires_login(self):
-        response = self.client.get('/api/requests/?status=pending')
-        self.assertEqual(response.status_code, 302)  # expect redirect to login
-        self.assertIn('/login/', response.url)  # optional: check it's a redirect to login
-
-    def test_secretary_can_view_categorized_requests(self):
-        self.client.login(username='secretary1', password='pass123456')
-        response = self.client.get('/api/requests/?status=pending')
-        self.assertEqual(response.status_code, 200)
-
-    def test_request_types_are_defined_correctly(self):
-        expected_types = {
-            "grade_appeal": "Grade Appeal",
-            "extension_request": "Extension Request",
-            "course_swap": "Course Swap"
-        }
-        self.assertIn("grade_appeal", expected_types)
-
-    def test_dashboard_route(self):
-        self.client.login(username='student1', password='pass123456')
-        response = self.client.get('/dashboard/', follow=True)
-        self.assertEqual(response.status_code, 200)
-
-        html = response.content.decode()
-        self.assertIn("בקשה למטלה חלופית - חרבות ברזל", html)
-        self.assertIn("דחיית הגשת עבודה", html)
-        self.assertIn("שחרור חסימת קורס", html)
-
     def test_secretary_requests_api(self):
         # Create a test user with the 'secretary' role
         user = User.objects.create_user(username='testuser', password='password', role='secretary')
@@ -214,7 +173,47 @@ class RequestAPITests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {'error': 'Unauthorized'})
 
-User = get_user_model()
+
+    def test_api_returns_only_assigned_requests(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/?status=pending')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(response.json()[0]['status'], 'pending')
+
+    def test_api_rejects_invalid_status(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/?status=invalid')
+        self.assertEqual(response.status_code, 400)
+
+    def test_api_requires_login(self):
+        response = self.client.get('/api/requests/?status=pending')
+        self.assertEqual(response.status_code, 302)  # expect redirect to login
+        self.assertIn('/login/', response.url)  # optional: check it's a redirect to login
+
+    def test_secretary_can_view_categorized_requests(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.get('/api/requests/?status=pending')
+        self.assertEqual(response.status_code, 200)
+
+    def test_request_types_are_defined_correctly(self):
+        expected_types = {
+            "grade_appeal": "Grade Appeal",
+            "extension_request": "Extension Request",
+            "course_swap": "Course Swap"
+        }
+        self.assertIn("grade_appeal", expected_types)
+
+    def test_dashboard_route(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.get('/dashboard/', follow=True)
+        self.assertEqual(response.status_code, 200)
+
+        html = response.content.decode()
+        self.assertIn("בקשה למטלה חלופית - חרבות ברזל", html)
+        self.assertIn("דחיית הגשת עבודה", html)
+        self.assertIn("שחרור חסימת קורס", html)
+
 
 class LogoutTests(TestCase):
     def setUp(self):
@@ -286,6 +285,7 @@ class LogoutTests(TestCase):
 
         resp = self.client.get(reverse('academic_dashboard'))
         self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")
+
 
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
@@ -717,7 +717,7 @@ class SubmitMilitaryDocsTest(TestCase):
         self.assertEqual(req.request_type, 'military_docs')
         self.assertEqual(req.student, self.student)
         self.assertEqual(req.assigned_to, self.secretary)
-        #self.assertTrue(req.attachment.name.endswith("military.pdf"))
+
 
 from django.test import TestCase, Client
 from django.urls import reverse
