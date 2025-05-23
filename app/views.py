@@ -250,6 +250,11 @@ def logout_view(request):
     logout(request)
     return redirect('login')
 
+def logout_confirmed(request):
+    if request.user.is_authenticated:
+        print(f"🔒 Logout confirmed for user: {request.user.username}")
+        logout(request)
+    return redirect('login')
 
 from django.shortcuts import render
 from django.http import JsonResponse

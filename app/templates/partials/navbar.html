@@ -70,12 +70,13 @@
         0 10px 10px rgba(0, 0, 0, 0.22);
 }
 
+
 </style>
 
 
-<div class="navbar">
+<div class="navbar" dir ="rtl">
     <div class="username">
-       <span>Welcome, {{ request.user.first_name }} {{ request.user.last_name }}</span>
+       <span>  שלום {{ request.user.first_name }} {{ request.user.last_name }}</span>
 
     </div>
     <div class="logo">
@@ -85,26 +86,23 @@
     <div class="buttons">
         {% if request.user.role == 'academic' %}
     <a href="{% url 'academic_request_history' %}">
-        <button><i class="fas fa-folder-open"></i> Requests</button>
+        <button><i class="fas fa-folder-open"></i> בקשות</button>
     </a>
     {% elif request.user.role == 'secretary' %}
     <a href="{% url 'secretary_request_history' %}">
-        <button ><i class="fas fa-folder-open"></i> Requests</button>
+        <button ><i class="fas fa-folder-open"></i>  בקשות</button>
     </a>
     {% elif request.user.role == 'student' %}
   <a href="{% url 'student_request_history' %}">
-    <button><i class="fas fa-folder-open"></i> Requests</button>
+    <button><i class="fas fa-folder-open"></i>  בקשות</button>
 </a>
 
         {% endif %}
 
 
-      <form method="post" action="{% url 'logout' %}">
-      {% csrf_token %}
-         <button type="submit">
-               <i class="fas fa-sign-out-alt"></i> Logout
-         </button>
-    </form>
+     <button onclick="openLogoutModal()">
+    <i class="fas fa-sign-out-alt"></i> התנתקות
+</button>
 
     </div>
 </div>
