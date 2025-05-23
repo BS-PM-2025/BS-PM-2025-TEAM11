@@ -55,11 +55,34 @@
             background-color: #FFA500;
             color: white;
         }
+
+    .back-button {
+    display: inline-block;
+    margin-top: 30px;
+    padding: 12px 24px;
+    background-color: #008B8B;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    text-align: center;
+    margin-right: auto;
+    margin-left: auto;
+}
+.back-button:hover {
+    background-color: #006f6f;
+}
+
+
     </style>
 </head>
 <body>
 
 <h1>היסטוריית הבקשות שלי</h1>
+
+
 
 
 <table>
@@ -111,6 +134,9 @@
         {% endfor %}
     </tbody>
 </table>
+<div style="text-align: center;">
+    <a href="{% url 'student_dashboard' %}" class="back-button">⬅ חזרה</a>
+</div>
 
 {% include 'partials/footer.html' %}
 </body>

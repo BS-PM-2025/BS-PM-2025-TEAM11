@@ -800,14 +800,15 @@ def request_detail_update(request, request_id):
                                "לא ניתן לאשר או לדחות בקשה מסוג 'אחר' כל עוד היא אצל המזכירה המקורית. יש להעבירה קודם.")
                 return redirect(request.path)
 
+
         # ✅ Allow status updates if user is the assigned_to
         if request.user == req.assigned_to:
             req.status = status
             if status != 'in_progress':
                 req.explanation = explanation
             req.save()
-
-            # ✅ Send email to student
+            # ✅ Set success message
+            messages.success(request, "הבקשה טופלה בהצלחה והסטודנט קיבל עדכון בדוא\"ל.")            # ✅ Send email to student
             subject = f"עדכון סטטוס לבקשה: {req.title}"
             status_translations = {
                 'accepted': 'אושרה',
@@ -999,3 +1000,13 @@ from .models import Course
 def get_all_courses(request):
     courses = Course.objects.all().values('id', 'name')
     return JsonResponse(list(courses), safe=False)
+
+
+from django.shortcuts import render, get_object_or_404
+from app.models import Request
+
+def request_detail_view_academic(request, request_id):
+    req = get_object_or_404(Request, id=request_id)
+    return render(request, 'request_detail_view_academic.html', {
+        'request_obj': req
+    })

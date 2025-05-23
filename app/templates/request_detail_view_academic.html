@@ -1,0 +1,86 @@
+{% include 'partials/navbar.html' %}
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>פרטי בקשה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        .container {
+            background-color: white;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: right;
+        }
+
+        h2 {
+            color: #008B8B;
+            margin-bottom: 30px;
+        }
+
+        .field {
+            margin-bottom: 15px;
+        }
+
+        .field strong {
+            display: inline-block;
+            width: 150px;
+            color: #333;
+        }
+
+        .status {
+            font-weight: bold;
+        }
+
+        .accepted { color: green; }
+        .rejected { color: red; }
+        .in-progress { color: orange; }
+        .pending { color: gray; }
+
+        .back-btn {
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #008B8B;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .back-btn:hover {
+            background-color: #006666;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>פרטי בקשה</h2>
+
+<div>
+    <p><strong>כותרת:</strong> {{ request_obj.title }}</p>
+    <p><strong>תיאור:</strong> {{ request_obj.description|default:"(לא סופק תיאור)" }}</p>
+    <p><strong>סטטוס:</strong> {{ request_obj.status }}</p>
+    <p><strong>תאריך שליחה:</strong> {{ request_obj.submitted_at|date:"d/m/Y H:i" }}</p>
+    <p><strong>סטודנט:</strong> {{ request_obj.student.user.username }}</p>
+    <p><strong>הסבר שניתן:</strong> {{ request_obj.explanation|default:"(לא סופק הסבר)" }}</p>
+</div>
+
+    <a href="{% url 'academic_request_history' %}" class="back-btn">חזרה</a>
+</div>
+
+{% include 'partials/footer.html' %}
+</body>
+</html>

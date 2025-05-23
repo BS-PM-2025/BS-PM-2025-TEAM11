@@ -1018,3 +1018,118 @@ class SubmitInstructorRequestIntegrationTests(TestCase):
 
     def test_submit_iron_swords(self):
         self.post_request('submit_iron_swords', 'iron_swords')
+
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student
+
+User = get_user_model()
+
+from django.contrib.auth import get_user_model
+
+class RequestHistoryIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        User = get_user_model()
+
+        # יצירת משתמש סטודנט
+        self.student_user = User.objects.create_user(
+            username='student1',
+            password='pass123456',
+            id_number='111111111',
+            email='student@example.com',
+            role='student'
+        )
+
+        # יצירת אובייקט Student עם כל השדות החובה
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=2,
+            degree_type='bachelor'
+        )
+
+    def test_back_button_exists_on_history_page(self):
+        # התחברות כסטודנט
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד היסטוריית הבקשות
+        response = self.client.get(reverse('student_request_history'))
+
+        self.assertEqual(response.status_code, 200)
+
+        # בדיקה שהכפתור קיים בקוד ה-HTML עם הקישור הנכון
+        self.assertContains(response, 'class="back-button"')
+        self.assertIn(reverse('student_dashboard'), response.content.decode())
+
+    def test_back_button_redirects_to_correct_page(self):
+        # התחברות
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד שאליו הכפתור אמור להחזיר
+        response = self.client.get(reverse('student_dashboard'))
+
+        # נוודא שהעמוד נגיש
+        self.assertEqual(response.status_code, 200)
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class AcademicRequestDetailViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        # יצירת משתמש אקדמי
+        self.academic_user = get_user_model().objects.create_user(
+            username='academic1',
+            password='testpass123',
+            role='academic',
+            id_number='123456789',
+            phone='0501234567',
+            department='הנדסה'
+        )
+
+        # יצירת סטודנט ובקשה
+        self.student_user = get_user_model().objects.create_user(
+            username='student1',
+            password='testpass123',
+            role='student',
+            id_number='111111111',
+            phone='0509876543',
+            department='הנדסת תוכנה'
+        )
+
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=1,
+            degree_type='bachelor'
+        )
+
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='This is a test request.',
+            student=self.student,
+            assigned_to=self.academic_user,
+            status='accepted',
+            request_type='other'
+        )
+
+    def test_academic_can_view_request_detail(self):
+        self.client.login(username='academic1', password='testpass123')
+        url = reverse('request_detail_view_academic', args=[self.req.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Request')
+        self.assertTemplateUsed(response, 'request_detail_view_academic.html')
+
+    def test_request_detail_not_found(self):
+        self.client.login(username='academic1', password='testpass123')
+        url = reverse('request_detail_view_academic', args=[999])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)

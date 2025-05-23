@@ -47,6 +47,7 @@ path('student/request-details/<int:request_id>/', views.view_previous_request_de
 path('final-academic-registration/', views.final_academic_registration, name='final_academic_registration'),
     path('check-email-role/', views.check_email_role, name='check_email_role'),
 path('get-all-courses/', views.get_all_courses, name='get_all_courses'),
+path('requests/<int:request_id>/academic/', views.request_detail_view_academic,name='request_detail_view_academic'),
 
 ]
 
