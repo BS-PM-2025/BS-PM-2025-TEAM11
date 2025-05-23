@@ -800,6 +800,7 @@ def request_detail_update(request, request_id):
                                "לא ניתן לאשר או לדחות בקשה מסוג 'אחר' כל עוד היא אצל המזכירה המקורית. יש להעבירה קודם.")
                 return redirect(request.path)
 
+
         # ✅ Allow status updates if user is the assigned_to
         if request.user == req.assigned_to:
             req.status = status
