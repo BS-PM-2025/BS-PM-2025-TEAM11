@@ -107,13 +107,36 @@ footer {
 }
 
 .view-btn:hover {
-  background-color: #006666;
+    background-color: #006666;
+}
+.btn-back {
+    background-color: #d3e2e2;
+    color: #004d4d;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-back:hover {
+    background-color: #b5d1d1;
+}
+.btn-back-wrapper {
+    margin: 20px;
+    text-align: left;
 }
 
     </style>
 </head>
 <body>
+
 <div class="page-wrapper">
+    <button onclick="goBack()" class="btn-back">
+        ⬅ Back to HomePage
+    </button>
     <h2>Request History</h2>
 
     <!-- Category Buttons -->
@@ -190,6 +213,15 @@ ${['in_progress', 'accepted', 'rejected'].includes(request.status)
         // Show "pending" on first load
         window.onload = () => showRequests('pending', { target: document.querySelector('button.active') });
     </script>
+<script>
+function goBack() {
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        window.location.href = "/dashboard/";
+    }
+}
+</script>
 
 </div>
 {% include 'partials/footer.html' %}
