@@ -1375,3 +1375,110 @@ class RequestExplanationTests(TestCase):
         self.assertIn('עדכון סטטוס לבקשה', email.subject)
         self.assertIn('Approved due to valid reason.', email.body)
         self.assertEqual(email.to, [self.student_user.email])
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+User = get_user_model()
+
+class RequestDetailTestsHakton(TestCase):
+    def setUp(self):
+        # Create user and student
+        self.user = User.objects.create_user(
+            username='student1',
+            password='testpass123',
+            role='student',
+            id_number='123456789',
+            phone='0501234567',
+            department='הנדסה',
+            date_start='2023-01-01',
+            email='student@test.com'
+        )
+        self.student = Student.objects.create(user=self.user, year_of_study=1, degree_type='bachelor')
+
+        # Create request
+        self.request = Request.objects.create(
+            title='אלגברה לינארית לתוכנה',
+            description='בקשה שקולה 1',
+            status='rejected',
+            request_type='other',
+            student=self.student,
+            assigned_to=self.user,
+            explanation='דחיית הבקשה 123'
+        )
+
+        self.client = Client()
+        self.client.login(username='student1', password='testpass123')
+
+    def test_view_request_details_page(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'פרטי בקשה')
+        self.assertContains(response, self.request.title)
+        self.assertContains(response, self.request.description)
+        self.assertContains(response, 'הבקשה נדחתה')
+        self.assertContains(response, self.request.explanation)
+
+    def test_print_and_pdf_buttons_exist(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertContains(response, 'הדפס בקשה')
+        self.assertContains(response, 'הורד PDF')
+
+    def test_back_buttons_exist(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertContains(response, 'דף הבית')
+        self.assertContains(response, 'היסטוריית הבקשות')
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from app.models import User, Secretary, Student, Request
+from django.utils import timezone
+
+class SecretaryDashboardUITestsHakton(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.secretary_user = User.objects.create_user(
+            username='sec_user',
+            password='secret123',
+            role='secretary',
+            id_number='123456789',
+            email='sec@test.com',
+            phone='0501234567',
+            department='מזכירות'
+        )
+        Secretary.objects.get_or_create(user=self.secretary_user)
+
+        self.client.login(username='sec_user', password='secret123')
+
+    def test_general_requests_api_returns_empty(self):
+        """
+        אם אין בקשות כלליות – תוצג הודעת 'לא נמצאו בקשות.'
+        """
+        url = reverse('get_secretary_other_requests')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, [])
+
+    def test_dashboard_view_loads(self):
+        """
+        בדיקה שהדף נטען בהצלחה ומכיל את הכפתורים הנכונים.
+        """
+        response = self.client.get(reverse('secretary_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '📄 הבקשות שלי')
+        self.assertContains(response, 'בקשות כלליות')
+
+    def test_general_requests_button_css_class(self):
+        """
+        בדיקה ויזואלית שהכפתור מקבל class של active-tab כשהוא נבחר.
+        שים לב: זו בדיקה על הלוגיקה – תוודא ב-JS שה-class מתעדכן בזמן קריאה.
+        כאן רק נוודא שהכפתור קיים ונגיש.
+        """
+        response = self.client.get(reverse('secretary_dashboard'))
+        self.assertContains(response, 'class="request-button"')
