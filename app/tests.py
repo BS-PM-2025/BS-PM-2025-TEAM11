@@ -285,6 +285,23 @@ class LogoutTests(TestCase):
 
         resp = self.client.get(reverse('academic_dashboard'))
         self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")
+        # UnitTest for Hackthon Mission Logout
+        # Major Feature: Logout Confirmation Test
+        # This test checks that after confirming logout, the user is redirected and session ends
+    def test_student_logout_confirmed(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
+
+    def test_secretary_logout_confirmed(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
+
+    def test_academic_logout_confirmed(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
 
 
 from django.test import TestCase, Client
@@ -1018,3 +1035,343 @@ class SubmitInstructorRequestIntegrationTests(TestCase):
 
     def test_submit_iron_swords(self):
         self.post_request('submit_iron_swords', 'iron_swords')
+
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student
+
+User = get_user_model()
+
+from django.contrib.auth import get_user_model
+
+class RequestHistoryIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        User = get_user_model()
+
+        # יצירת משתמש סטודנט
+        self.student_user = User.objects.create_user(
+            username='student1',
+            password='pass123456',
+            id_number='111111111',
+            email='student@example.com',
+            role='student'
+        )
+
+        # יצירת אובייקט Student עם כל השדות החובה
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=2,
+            degree_type='bachelor'
+        )
+
+    def test_back_button_exists_on_history_page(self):
+        # התחברות כסטודנט
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד היסטוריית הבקשות
+        response = self.client.get(reverse('student_request_history'))
+
+        self.assertEqual(response.status_code, 200)
+
+        # בדיקה שהכפתור קיים בקוד ה-HTML עם הקישור הנכון
+        self.assertContains(response, 'class="back-button"')
+        self.assertIn(reverse('student_dashboard'), response.content.decode())
+
+    def test_back_button_redirects_to_correct_page(self):
+        # התחברות
+        self.client.login(username='student1', password='pass123456')
+
+        # בקשת GET לעמוד שאליו הכפתור אמור להחזיר
+        response = self.client.get(reverse('student_dashboard'))
+
+        # נוודא שהעמוד נגיש
+        self.assertEqual(response.status_code, 200)
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class AcademicRequestDetailViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        # יצירת משתמש אקדמי
+        self.academic_user = get_user_model().objects.create_user(
+            username='academic1',
+            password='testpass123',
+            role='academic',
+            id_number='123456789',
+            phone='0501234567',
+            department='הנדסה'
+        )
+
+        # יצירת סטודנט ובקשה
+        self.student_user = get_user_model().objects.create_user(
+            username='student1',
+            password='testpass123',
+            role='student',
+            id_number='111111111',
+            phone='0509876543',
+            department='הנדסת תוכנה'
+        )
+
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=1,
+            degree_type='bachelor'
+        )
+
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='This is a test request.',
+            student=self.student,
+            assigned_to=self.academic_user,
+            status='accepted',
+            request_type='other'
+        )
+
+    def test_academic_can_view_request_detail(self):
+        self.client.login(username='academic1', password='testpass123')
+        url = reverse('request_detail_view_academic', args=[self.req.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Request')
+        self.assertTemplateUsed(response, 'request_detail_view_academic.html')
+
+    def test_request_detail_not_found(self):
+        self.client.login(username='academic1', password='testpass123')
+        url = reverse('request_detail_view_academic', args=[999])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.core import mail
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class RequestExplanationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        self.user = get_user_model().objects.create_user(
+            username='secretary1_test',
+            password='testpass123',
+            email='secretary_unique@example.com',
+            role='secretary',
+            id_number='987654320',
+            phone='0500000011',
+            department='Test Dept'
+        )
+
+        self.student_user = get_user_model().objects.create_user(
+            username='student1_test',
+            password='studentpass',
+            email='student_unique@example.com',
+            role='student',
+            id_number='987654321',
+            phone='0509999991',
+            department='CS'
+        )
+
+        self.student, _ = Student.objects.get_or_create(
+            user=self.student_user,
+            defaults={
+                'year_of_study': 1,
+                'degree_type': 'bachelor'
+            }
+        )
+
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='Please approve me',
+            status='pending',
+            request_type='delay_submission',
+            student=self.student,
+            assigned_to=self.user
+        )
+
+    def test_status_and_explanation_are_saved(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Valid explanation.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'accepted')
+        self.assertEqual(self.req.explanation, 'Valid explanation.')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_non_assigned_user_cannot_update(self):
+        other_user = get_user_model().objects.create_user(
+            username='other_secretary',
+            password='otherpass',
+            role='secretary',
+            id_number='123123123',
+            phone='0501231234',
+            email='other@example.com'
+        )
+
+        self.client.login(username='other_secretary', password='otherpass')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'rejected',
+            'explanation': 'Should not work.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertNotEqual(self.req.status, 'rejected')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_in_progress_status_does_not_require_explanation(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'in_progress',
+            'explanation': ''
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'in_progress')
+        self.assertEqual(self.req.explanation, '')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_email_sent_to_student(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Approved due to valid reason.'
+        })
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn('עדכון סטטוס לבקשה', email.subject)
+        self.assertIn('Approved due to valid reason.', email.body)
+        self.assertEqual(email.to, [self.student_user.email])
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.core import mail
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class RequestExplanationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        self.user = get_user_model().objects.create_user(
+            username='secretary1_test',
+            password='testpass123',
+            email='secretary_unique@example.com',
+            role='secretary',
+            id_number='987654320',
+            phone='0500000011',
+            department='Test Dept'
+        )
+
+        self.student_user = get_user_model().objects.create_user(
+            username='student1_test',
+            password='studentpass',
+            email='student_unique@example.com',
+            role='student',
+            id_number='987654321',
+            phone='0509999991',
+            department='CS'
+        )
+
+        self.student, _ = Student.objects.get_or_create(
+            user=self.student_user,
+            defaults={
+                'year_of_study': 1,
+                'degree_type': 'bachelor'
+            }
+        )
+
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='Please approve me',
+            status='pending',
+            request_type='delay_submission',
+            student=self.student,
+            assigned_to=self.user
+        )
+
+    def test_status_and_explanation_are_saved(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Valid explanation.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'accepted')
+        self.assertEqual(self.req.explanation, 'Valid explanation.')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_non_assigned_user_cannot_update(self):
+        other_user = get_user_model().objects.create_user(
+            username='other_secretary',
+            password='otherpass',
+            role='secretary',
+            id_number='123123123',
+            phone='0501231234',
+            email='other@example.com'
+        )
+
+        self.client.login(username='other_secretary', password='otherpass')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'rejected',
+            'explanation': 'Should not work.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertNotEqual(self.req.status, 'rejected')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_in_progress_status_does_not_require_explanation(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'in_progress',
+            'explanation': ''
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'in_progress')
+        self.assertEqual(self.req.explanation, '')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_email_sent_to_student(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Approved due to valid reason.'
+        })
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn('עדכון סטטוס לבקשה', email.subject)
+        self.assertIn('Approved due to valid reason.', email.body)
+        self.assertEqual(email.to, [self.student_user.email])
