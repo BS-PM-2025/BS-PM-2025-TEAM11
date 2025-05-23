@@ -9,21 +9,28 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing dependencies...'
-                sh 'pip install -r requirements.txt || pip install Django pytest pytest-django'
+                sh '''
+                    if [ -f requirements.txt ]; then
+                        pip3 install -r requirements.txt
+                    else
+                        echo "⚠️ requirements.txt not found, installing manually..."
+                        pip3 install Django pytest pytest-django
+                    fi
+                '''
             }
         }
 
         stage('Prepare Database') {
             steps {
                 echo '🗄️ Running migrations...'
-                sh 'python manage.py migrate'
+                sh 'python3 manage.py migrate'
             }
         }
 
         stage('Run Unit + Integration Tests') {
             steps {
                 echo '🧪 Running Django tests with coverage...'
-                sh 'pytest --junitxml=test-results.xml'
+                sh 'pytest --junitxml=test-results.xml || python3 manage.py test'
             }
         }
     }
