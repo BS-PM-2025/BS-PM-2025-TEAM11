@@ -285,6 +285,23 @@ class LogoutTests(TestCase):
 
         resp = self.client.get(reverse('academic_dashboard'))
         self.assertRedirects(resp, f"{reverse('login')}?next={reverse('academic_dashboard')}")
+        # UnitTest for Hackthon Mission Logout
+        # Major Feature: Logout Confirmation Test
+        # This test checks that after confirming logout, the user is redirected and session ends
+    def test_student_logout_confirmed(self):
+        self.client.login(username='student1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
+
+    def test_secretary_logout_confirmed(self):
+        self.client.login(username='secretary1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
+
+    def test_academic_logout_confirmed(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get(reverse('logout_confirmed'))
+        self.assertRedirects(response, reverse('login'))
 
 
 from django.test import TestCase, Client

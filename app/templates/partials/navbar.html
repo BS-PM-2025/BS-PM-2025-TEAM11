@@ -70,6 +70,7 @@
         0 10px 10px rgba(0, 0, 0, 0.22);
 }
 
+
 </style>
 
 
@@ -99,12 +100,9 @@
         {% endif %}
 
 
-      <form method="post" action="{% url 'logout' %}">
-      {% csrf_token %}
-         <button type="submit">
-               <i class="fas fa-sign-out-alt"></i> התנתקות
-         </button>
-    </form>
+     <button onclick="openLogoutModal()">
+    <i class="fas fa-sign-out-alt"></i> התנתקות
+</button>
 
     </div>
 </div>

@@ -23,6 +23,8 @@ urlpatterns = [
     path('dashboard/secretary/other/', views.secretary_dashboard_other, name='secretary_dashboard_other'),
     # הדף לבקשות OTHER
     path('logout/', views.logout_view, name='logout'),
+    path('logout_confirmed/', views.logout_confirmed, name='logout_confirmed'),
+
     path('send-verification-code/', views.send_verification_code, name='send_verification_code'),
     path('verify-code/', views.verify_code, name='verify_code'),
     path('check-id-and-phone/', views.check_id_and_phone, name='check_id_and_phone'),
