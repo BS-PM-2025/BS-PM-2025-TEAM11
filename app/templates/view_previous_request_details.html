@@ -43,11 +43,66 @@
             border-left: 5px solid #00a0a0;
             border-radius: 8px;
         }
+        .field-box {
+            background-color: #f9f9f9;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+
+        .value {
+            font-size: 14.5px;
+            color: #222;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: #e0f7f7;
+            color: #006666;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .back-button:hover {
+            background-color: #ccf2f2;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        .print-button {
+            padding: 10px 18px;
+            background-color: #008080;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .print-button:hover {
+            background-color: #00a0a0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
 
         .status-accepted { color: green; font-weight: bold; }
         .status-rejected { color: red; font-weight: bold; }
-
-        .modal {
+         .modal {
   display: none;
   position: fixed;
   z-index: 9999;
@@ -97,32 +152,62 @@
   color: #333;
 }
     </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-    <div class="box">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+            <a href="{% url 'student_dashboard' %}" class="back-button">← דף הבית</a>
+            <a href="{% url 'student_request_history' %}" class="back-button">← היסטוריית הבקשות</a>
+        </div>
+      <div class="box" id="print-area"> <!-- עברנו את ה-ID החוצה לכאן -->
+
         <h2>פרטי בקשה</h2>
 
-        <p><span class="label">כותרת:</span> {{ req.title }}</p>
-        <p><span class="label">תיאור:</span> {{ req.description }}</p>
-        <p><span class="label">תאריך הגשה:</span> {{ req.submitted_at|date:"d/m/Y" }}</p>
-        <p><span class="label">סטטוס:</span>
-            {% if req.status == 'accepted' %}
-                <span class="status-accepted">הבקשה התקבלה</span>
-            {% elif req.status == 'rejected' %}
-                <span class="status-rejected">הבקשה נדחתה</span>
-            {% endif %}
-        </p>
+        <div class="field-box">
+            <div class="label">📌 כותרת:</div>
+            <div class="value">{{ req.title }}</div>
+        </div>
+
+        <div class="field-box">
+            <div class="label">📝 תיאור:</div>
+            <div class="value">{{ req.description }}</div>
+        </div>
+
+        <div class="field-box">
+            <div class="label">📅 תאריך הגשה:</div>
+            <div class="value">{{ req.submitted_at|date:"d/m/Y" }}</div>
+        </div>
+
+        <div class="field-box">
+            <div class="label">📂 סטטוס:</div>
+            <div class="value">
+                {% if req.status == 'accepted' %}
+                    ✅ <span class="status-accepted">הבקשה התקבלה</span>
+                {% elif req.status == 'rejected' %}
+                    ❌ <span class="status-rejected">הבקשה נדחתה</span>
+                {% else %}
+                    ⏳ בטיפול
+                {% endif %}
+            </div>
+        </div>
 
         {% if req.explanation %}
         <div class="response">
-            <strong>תגובה מהמטפל:</strong>
+            <strong>💬 תגובה מהמטפל:</strong>
             <p>{{ req.explanation }}</p>
         </div>
         {% endif %}
     </div>
 
+    <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+        <button onclick="printPDF()" class="print-button">🖨️ הדפס בקשה</button>
+        <button onclick="downloadPDF()" class="print-button">⬇️ הורד PDF</button>
+    </div>
+
+
+
     {% include 'partials/footer.html' %}
-<div id="logoutModal" class="modal">
+    <div id="logoutModal" class="modal">
   <div class="modal-content">
     <p>האם את/ה בטוח/ה שברצונך להתנתק ? </p>
     <div class="modal-buttons">
@@ -131,8 +216,41 @@
     </div>
   </div>
 </div>
-
 <script>
+function printPDF() {
+    const originalTitle = document.title;
+    document.title = "פרטי בקשה - RequestFlow";
+
+    window.print();
+
+    // מחזיר את כותרת הדף המקורית
+    setTimeout(() => {
+        document.title = originalTitle;
+    }, 1000);
+}
+function downloadPDF() {
+    const element = document.getElementById("print-area");
+    const options = {
+        margin: 0.5,
+        filename: 'request_details.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            scrollY: 0,   // חשוב! אחרת הוא חותך חלקים מחוץ למסך
+            scrollX: 0,
+            useCORS: true
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().set(options).from(element).save();
+}
+
+
+
+
+
+
 function openLogoutModal() {
     document.getElementById("logoutModal").style.display = "block";
 }

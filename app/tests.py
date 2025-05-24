@@ -1150,3 +1150,223 @@ class AcademicRequestDetailViewTests(TestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 404)
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.core import mail
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+class RequestExplanationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        self.user = get_user_model().objects.create_user(
+            username='secretary1_test',
+            password='testpass123',
+            email='secretary_unique@example.com',
+            role='secretary',
+            id_number='987654320',
+            phone='0500000011',
+            department='Test Dept'
+        )
+
+        self.student_user = get_user_model().objects.create_user(
+            username='student1_test',
+            password='studentpass',
+            email='student_unique@example.com',
+            role='student',
+            id_number='987654321',
+            phone='0509999991',
+            department='CS'
+        )
+
+        self.student, _ = Student.objects.get_or_create(
+            user=self.student_user,
+            defaults={
+                'year_of_study': 1,
+                'degree_type': 'bachelor'
+            }
+        )
+
+        self.req = Request.objects.create(
+            title='Test Request',
+            description='Please approve me',
+            status='pending',
+            request_type='delay_submission',
+            student=self.student,
+            assigned_to=self.user
+        )
+
+    def test_status_and_explanation_are_saved(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Valid explanation.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'accepted')
+        self.assertEqual(self.req.explanation, 'Valid explanation.')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_non_assigned_user_cannot_update(self):
+        other_user = get_user_model().objects.create_user(
+            username='other_secretary',
+            password='otherpass',
+            role='secretary',
+            id_number='123123123',
+            phone='0501231234',
+            email='other@example.com'
+        )
+
+        self.client.login(username='other_secretary', password='otherpass')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'rejected',
+            'explanation': 'Should not work.'
+        })
+
+        self.req.refresh_from_db()
+        self.assertNotEqual(self.req.status, 'rejected')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_in_progress_status_does_not_require_explanation(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'in_progress',
+            'explanation': ''
+        })
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'in_progress')
+        self.assertEqual(self.req.explanation, '')
+        self.assertRedirects(response, reverse('secretary_dashboard'))
+
+    def test_email_sent_to_student(self):
+        self.client.login(username='secretary1_test', password='testpass123')
+        url = reverse('request_detail_update', args=[self.req.id])
+
+        response = self.client.post(url, {
+            'status': 'accepted',
+            'explanation': 'Approved due to valid reason.'
+        })
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn('עדכון סטטוס לבקשה', email.subject)
+        self.assertIn('Approved due to valid reason.', email.body)
+        self.assertEqual(email.to, [self.student_user.email])
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from app.models import Student, Request
+
+User = get_user_model()
+
+class RequestDetailTestsHakton(TestCase):
+    def setUp(self):
+        # Create user and student
+        self.user = User.objects.create_user(
+            username='student1',
+            password='testpass123',
+            role='student',
+            id_number='123456789',
+            phone='0501234567',
+            department='הנדסה',
+            date_start='2023-01-01',
+            email='student@test.com'
+        )
+        self.student = Student.objects.create(user=self.user, year_of_study=1, degree_type='bachelor')
+
+        # Create request
+        self.request = Request.objects.create(
+            title='אלגברה לינארית לתוכנה',
+            description='בקשה שקולה 1',
+            status='rejected',
+            request_type='other',
+            student=self.student,
+            assigned_to=self.user,
+            explanation='דחיית הבקשה 123'
+        )
+
+        self.client = Client()
+        self.client.login(username='student1', password='testpass123')
+
+    def test_view_request_details_page(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'פרטי בקשה')
+        self.assertContains(response, self.request.title)
+        self.assertContains(response, self.request.description)
+        self.assertContains(response, 'הבקשה נדחתה')
+        self.assertContains(response, self.request.explanation)
+
+    def test_print_and_pdf_buttons_exist(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertContains(response, 'הדפס בקשה')
+        self.assertContains(response, 'הורד PDF')
+
+    def test_back_buttons_exist(self):
+        url = reverse('view_previous_request_details', kwargs={'request_id': self.request.id})
+        response = self.client.get(url)
+        self.assertContains(response, 'דף הבית')
+        self.assertContains(response, 'היסטוריית הבקשות')
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from app.models import User, Secretary, Student, Request
+from django.utils import timezone
+
+class SecretaryDashboardUITestsHakton(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.secretary_user = User.objects.create_user(
+            username='sec_user',
+            password='secret123',
+            role='secretary',
+            id_number='123456789',
+            email='sec@test.com',
+            phone='0501234567',
+            department='מזכירות'
+        )
+        Secretary.objects.get_or_create(user=self.secretary_user)
+
+        self.client.login(username='sec_user', password='secret123')
+
+    def test_general_requests_api_returns_empty(self):
+        """
+        אם אין בקשות כלליות – תוצג הודעת 'לא נמצאו בקשות.'
+        """
+        url = reverse('get_secretary_other_requests')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, [])
+
+    def test_dashboard_view_loads(self):
+        """
+        בדיקה שהדף נטען בהצלחה ומכיל את הכפתורים הנכונים.
+        """
+        response = self.client.get(reverse('secretary_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '📄 הבקשות שלי')
+        self.assertContains(response, 'בקשות כלליות')
+
+    def test_general_requests_button_css_class(self):
+        """
+        בדיקה ויזואלית שהכפתור מקבל class של active-tab כשהוא נבחר.
+        שים לב: זו בדיקה על הלוגיקה – תוודא ב-JS שה-class מתעדכן בזמן קריאה.
+        כאן רק נוודא שהכפתור קיים ונגיש.
+        """
+        response = self.client.get(reverse('secretary_dashboard'))
+        self.assertContains(response, 'class="request-button"')
