@@ -18,8 +18,10 @@ pipeline {
         stage('Prepare Database') {
             steps {
                 echo '🗄️ Preparing database...'
-                sh 'python manage.py makemigrations'
-                sh 'python manage.py migrate'
+                sh 'python3 manage.py makemigrations'
+                sh 'python3 manage.py migrate'
+                sh 'python3 -m pytest --junitxml=test-results.xml'
+
             }
         }
 
