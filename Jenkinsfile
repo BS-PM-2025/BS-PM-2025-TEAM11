@@ -29,6 +29,7 @@ pipeline {
             steps {
                 echo '🧪 Running Django tests with coverage...'
                 sh 'python3 -m pytest app/ --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+
             }
         }
     }
