@@ -28,7 +28,8 @@ pipeline {
         stage('Run Unit + Integration Tests') {
             steps {
                 echo '🧪 Running Django tests with coverage...'
-                sh 'python3 -m pytest app/ --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+                sh 'python3 -m pytest app/tests.py --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+
 
             }
         }
