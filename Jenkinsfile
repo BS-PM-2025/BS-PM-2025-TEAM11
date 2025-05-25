@@ -3,8 +3,9 @@ pipeline {
 
     environment {
         PYTHONUNBUFFERED = '1'
-        DJANGO_SETTINGS_MODULE = 'BS_PM_2025.settings'  // ← שים כאן את הנתיב של settings.py שלך
-        CI = 'true'  // ← זה יסמן ל־settings.py להשתמש ב־ci_db.sqlite3
+        DJANGO_SETTINGS_MODULE = 'RequestFlow.settings'
+        PYTHONPATH = "${env.WORKSPACE}"
+        CI = 'true'
     }
 
     stages {
@@ -18,10 +19,8 @@ pipeline {
         stage('Prepare Database') {
             steps {
                 echo '🗄️ Preparing database...'
-                sh 'python3 manage.py makemigrations'
-                sh 'python3 manage.py migrate'
-                sh 'python3 -m pytest --junitxml=test-results.xml'
-
+                sh 'python manage.py makemigrations'
+                sh 'python manage.py migrate'
             }
         }
 
