@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         PYTHONUNBUFFERED = '1'
+        DJANGO_SETTINGS_MODULE = 'BS_PM_2025.settings'  // ← שים כאן את הנתיב של settings.py שלך
+        CI = 'true'  // ← זה יסמן ל־settings.py להשתמש ב־ci_db.sqlite3
     }
 
     stages {
@@ -15,10 +17,12 @@ pipeline {
 
         stage('Prepare Database') {
             steps {
-                echo '🗄️ Running migrations...'
+                echo '🗄️ Preparing database...'
+                sh 'python manage.py makemigrations'
                 sh 'python manage.py migrate'
             }
         }
+
 
         stage('Run Unit + Integration Tests') {
             steps {
