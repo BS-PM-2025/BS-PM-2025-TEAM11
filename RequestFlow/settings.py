@@ -143,3 +143,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 
 
+import os
+
+if os.environ.get('CI') == 'true':
+    print("🔧 CI mode: using test database for Jenkins")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'ci_db.sqlite3',
+        }
+    }
