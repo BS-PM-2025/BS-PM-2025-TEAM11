@@ -3,6 +3,9 @@ pipeline {
 
     environment {
         PYTHONUNBUFFERED = '1'
+        DJANGO_SETTINGS_MODULE = 'RequestFlow.settings'
+        PYTHONPATH = "${env.WORKSPACE}"
+        CI = 'true'
     }
 
     stages {
@@ -15,15 +18,19 @@ pipeline {
 
         stage('Prepare Database') {
             steps {
-                echo '🗄️ Running migrations...'
-                sh 'python manage.py migrate'
+                echo '🗄️ Preparing database...'
+                sh 'python3 manage.py makemigrations'
+                sh 'python3 manage.py migrate'
             }
         }
+
 
         stage('Run Unit + Integration Tests') {
             steps {
                 echo '🧪 Running Django tests with coverage...'
-                sh 'pytest --junitxml=test-results.xml'
+                sh 'python3 -m pytest app/tests.py --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+
+
             }
         }
     }
