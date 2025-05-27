@@ -1370,3 +1370,95 @@ class SecretaryDashboardUITestsHakton(TestCase):
         """
         response = self.client.get(reverse('secretary_dashboard'))
         self.assertContains(response, 'class="request-button"')
+
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
+from app.models import User, Student, Request
+
+class TrackStatusTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='student1', password='test123', role='student')
+        self.student = Student.objects.create(user=self.user, year_of_study=1, degree_type='bachelor')
+
+        self.academic = User.objects.create_user(
+            username='lecturer',
+            password='test456',
+            role='academic',
+            email='lecturer@example.com',
+            phone='0500000001',
+            id_number='111111111',
+            department='הנדסה',
+            date_start='2022-01-01'
+        )
+    def create_request(self, status, submitted_offset=0, updated_offset=0):
+        submitted_time = timezone.now() - timedelta(minutes=submitted_offset)
+        updated_time = timezone.now() - timedelta(minutes=updated_offset)
+
+        req = Request.objects.create(
+            title='Test Request',
+            description='Just a test',
+            status=status,
+            request_type='other',
+            student=self.student,
+            assigned_to=self.academic,
+            submitted_at=submitted_time,
+            updated_at=updated_time
+        )
+        return req
+
+    def test_track_status_pending(self):
+        req = self.create_request(status='pending')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'ממתינה')
+
+    def test_track_status_opened(self):
+        req = self.create_request(status='pending', submitted_offset=10, updated_offset=2)
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'הבקשה נפתחה')
+
+    def test_track_status_in_progress(self):
+        req = self.create_request(status='in_progress')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'בתהליך')
+
+    def test_track_status_accepted(self):
+        req = self.create_request(status='accepted')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'אושרה')
+
+    def test_track_status_rejected(self):
+        req = self.create_request(status='rejected')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'נדחתה')
+
+    def test_forbidden_access_to_other_students_request(self):
+        other_user = User.objects.create_user(
+            username='student2',
+            password='test789',
+            role='student',
+            email='student2@example.com',
+            phone='0500000003',
+            id_number='333333333',
+            department='הנדסה',
+            date_start='2023-10-10'
+        )
+
+        other_student = Student.objects.create(user=other_user, year_of_study=1, degree_type='bachelor')
+        req = Request.objects.create(
+            title='Other Request',
+            description='Not yours',
+            status='accepted',
+            request_type='other',
+            student=other_student,
+            assigned_to=self.academic
+        )
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertEqual(response.status_code, 404)

@@ -50,6 +50,7 @@ path('final-academic-registration/', views.final_academic_registration, name='fi
     path('check-email-role/', views.check_email_role, name='check_email_role'),
 path('get-all-courses/', views.get_all_courses, name='get_all_courses'),
 path('requests/<int:request_id>/academic/', views.request_detail_view_academic,name='request_detail_view_academic'),
+path('track_status/<int:request_id>/', views.track_status, name='track_status'),
 
 ]
 

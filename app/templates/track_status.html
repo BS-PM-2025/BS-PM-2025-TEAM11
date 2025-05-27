@@ -1,0 +1,187 @@
+{% include 'partials/navbar.html' %}
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מעקב סטטוס בקשה</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+            margin-top: 80px;
+        }
+.progress-ring {
+    width: 340px;
+    height: 340px;
+    margin: auto;
+    background: conic-gradient(
+        #ccc 0%,
+        var(--color) var(--progress),
+        #222 var(--progress)
+    );
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 16px #008B8B;
+}
+
+.inner-circle {
+    width: 260px;
+    height: 260px;
+    background: #fdfdfd; /* צבע שמנת */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #008B8B; /* כהה וקריא */
+    font-size: 26px;
+    font-weight: bold;
+    box-shadow: inset 0 0 10px #008B8B;
+}
+
+
+
+        .status-message {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+            font-weight: bold;
+        }
+.buttons-container {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+.chatbot-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: #008B8B;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 1000;
+  transition: 0.3s ease;
+}
+
+.chatbot-button:hover {
+  background-color: #006f6f;
+}
+
+.status-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    text-decoration: none;
+    border: none;
+    border-radius: 12px;
+    background-color: #008B8B;
+    color: white;
+    transition: 0.3s ease;
+    box-shadow: 0 0 14px var(--glow-color, #ccc);
+}
+
+.status-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--glow-color, #ccc);
+}
+
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>סטטוס הבקשה שלך</h2>
+    <div class="progress-ring" id="progress-ring">
+        <div class="inner-circle">
+            <span id="status-label">טוען...</span>
+        </div>
+    </div>
+    <p id="final-message" class="status-message"></p>
+</div>
+<div class="buttons-container">
+    <a href="{% url 'student_dashboard' %}" class="status-button">חזרה לדף הבית</a>
+    <a href="{% url 'student_request_history' %}" class="status-button">חזרה לרשימת הבקשות</a>
+</div>
+
+
+<!-- אייקון צ'אטבוט -->
+<a href="#" class="chatbot-button" title="צ'אטבוט">
+  <i class="fas fa-robot"></i>
+</a>
+
+
+{% include 'partials/footer.html' %}
+
+<script>
+    const status = "{{ request_status }}";
+
+const progressMap = {
+    'pending': 12.5,
+    'opened': 37.5,
+    'in_progress': 62.5,
+    'accepted': 100,
+    'rejected': 100
+};
+
+const colorMap = {
+    'pending': '#f0c419',
+    'opened': '#f39c12',
+    'in_progress': '#3498db',
+    'accepted': '#2ecc71',
+    'rejected': '#e74c3c'
+};
+
+const labelMap = {
+    'pending': 'ממתינה',
+    'opened': 'הבקשה נפתחה',
+    'in_progress': 'בתהליך',
+    'accepted': 'אושרה ✔️',
+    'rejected': 'נדחתה ❌'
+};
+
+const finalMessageMap = {
+    'accepted': 'הבקשה אושרה! תוכל לצפות בתשובה.',
+    'rejected': 'הבקשה נדחתה. תוכל לצפות בתשובה.'
+};
+
+const ring = document.getElementById('progress-ring');
+ring.style.setProperty('--progress', progressMap[status] + '%');
+ring.style.setProperty('--color', colorMap[status]);
+
+document.getElementById('status-label').style.color = colorMap[status];
+document.getElementById('status-label').innerText = labelMap[status];
+
+if (status === 'accepted' || status === 'rejected') {
+    document.getElementById('final-message').innerText = finalMessageMap[status];
+}
+const glowColor = colorMap[status];
+
+document.querySelectorAll('.status-button').forEach(btn => {
+    btn.style.setProperty('--glow-color', glowColor);
+});
+
+
+</script>
+
+</body>
+</html>

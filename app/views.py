@@ -1015,3 +1015,34 @@ def request_detail_view_academic(request, request_id):
     return render(request, 'request_detail_view_academic.html', {
         'request_obj': req
     })
+
+# views.py
+from django.shortcuts import render, get_object_or_404
+from .models import Request
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def track_status(request, request_id):
+    req = get_object_or_404(Request, id=request_id, student__user=request.user)
+
+    # נבדוק אם הבקשה נפתחה אבל עדיין בפנדינג
+    if req.status == 'pending' and req.updated_at != req.submitted_at:
+        effective_status = 'opened'
+    else:
+        effective_status = req.status
+
+    return render(request, 'track_status.html', {
+        'request_status': effective_status
+    })
+from django.utils import timezone
+
+@login_required
+def view_request(request, request_id):
+    req = get_object_or_404(Request, id=request_id)
+
+    if req.status == 'pending' and request.user == req.assigned_to:
+        # עדכון עדין בלי לשנות שדות נוספים
+        req.updated_at = timezone.now()
+        req.save(update_fields=['updated_at'])
+
+    return render(request, 'view_request.html', {'req': req})

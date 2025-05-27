@@ -47,14 +47,18 @@
             cursor: pointer;
             font-weight: bold;
         }
-        .view-button {
-            background-color: #4CAF50;
-            color: white;
-        }
-        .track-button {
-            background-color: #FFA500;
-            color: white;
-        }
+.view-button {
+    background-color: #008B8B;
+    color: white;
+    box-shadow: 0 0 10px var(--view-glow, #ccc);
+    transition: 0.3s ease;
+}
+
+.view-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px var(--view-glow, #ccc);
+}
+
 
     .back-button {
     display: inline-block;
@@ -123,6 +127,18 @@
   background-color: #eee;
   color: #333;
 }
+.track-button {
+    background-color: #008B8B;
+    color: white;
+    box-shadow: 0 0 10px var(--track-glow, #FFA500);
+    transition: 0.3s ease;
+}
+
+.track-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px var(--track-glow, #FFA500);
+}
+
 
     </style>
 </head>
@@ -164,10 +180,17 @@
             <td>{{ request.title }}</td>
             <td>{{ request.submitted_at|date:"d/m/Y" }}</td>
             <td>
-{% if request.status == 'accepted' or request.status == 'rejected' %}
-    <a href="{% url 'view_previous_request_details' request.id %}" class="action-button view-button">צפייה</a>
+{% if request.status == 'accepted' %}
+    <a href="{% url 'view_previous_request_details' request.id %}"
+       class="action-button view-button"
+       style="--view-glow: #2ecc71;">צפייה</a>
+{% elif request.status == 'rejected' %}
+    <a href="{% url 'view_previous_request_details' request.id %}"
+       class="action-button view-button"
+       style="--view-glow: #e74c3c;">צפייה</a>
+
 {% elif request.status == 'in_progress' or request.status == 'pending'%}
-    <button class="action-button track-button">מעקב</button>
+    <a href="{% url 'track_status' request.id %}" class="action-button track-button">מעקב</a>
 {% else %}
     -
 {% endif %}
