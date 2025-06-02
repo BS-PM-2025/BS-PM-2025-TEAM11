@@ -1046,3 +1046,10 @@ def view_request(request, request_id):
         req.save(update_fields=['updated_at'])
 
     return render(request, 'view_request.html', {'req': req})
+
+from django.shortcuts import render, get_object_or_404
+from .models import Request
+
+def request_detail_view_secretary(request, request_id):
+    request_obj = get_object_or_404(Request, id=request_id)
+    return render(request, 'request_detail_view_secretary.html', {'request_obj': request_obj})
