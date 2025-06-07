@@ -238,12 +238,13 @@ footer {
         <strong>${request.title}</strong><br>
         <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
         <small><strong>Status:</strong> ${request.status}</small><br>
-${['in_progress', 'accepted', 'rejected'].includes(request.status)
-  ? `<div style="text-align: center; margin-top: 12px;">
-         <a href="/requests/${request.id}/academic/" class="view-btn">צפייה</a>
-     </div>`
-  : ''}
-
+${
+  request.status === 'in_progress'
+    ? `<a href="/requests/${request.id}/" class="view-btn">צפייה</a>`
+    : (request.status === 'accepted' || request.status === 'rejected')
+    ? `<a href="/requests/${request.id}/academic/" class="view-btn">צפייה</a>`
+    : ''
+}
 
     </div>
 `;

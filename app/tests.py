@@ -1370,3 +1370,156 @@ class SecretaryDashboardUITestsHakton(TestCase):
         """
         response = self.client.get(reverse('secretary_dashboard'))
         self.assertContains(response, 'class="request-button"')
+
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
+from app.models import User, Student, Request
+
+class TrackStatusTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='student1', password='test123', role='student')
+        self.student = Student.objects.create(user=self.user, year_of_study=1, degree_type='bachelor')
+
+        self.academic = User.objects.create_user(
+            username='lecturer',
+            password='test456',
+            role='academic',
+            email='lecturer@example.com',
+            phone='0500000001',
+            id_number='111111111',
+            department='הנדסה',
+            date_start='2022-01-01'
+        )
+    def create_request(self, status, submitted_offset=0, updated_offset=0):
+        submitted_time = timezone.now() - timedelta(minutes=submitted_offset)
+        updated_time = timezone.now() - timedelta(minutes=updated_offset)
+
+        req = Request.objects.create(
+            title='Test Request',
+            description='Just a test',
+            status=status,
+            request_type='other',
+            student=self.student,
+            assigned_to=self.academic,
+            submitted_at=submitted_time,
+            updated_at=updated_time
+        )
+        return req
+
+    def test_track_status_pending(self):
+        req = self.create_request(status='pending')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'ממתינה')
+
+    def test_track_status_opened(self):
+        req = self.create_request(status='pending', submitted_offset=10, updated_offset=2)
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'הבקשה נפתחה')
+
+    def test_track_status_in_progress(self):
+        req = self.create_request(status='in_progress')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'בתהליך')
+
+    def test_track_status_accepted(self):
+        req = self.create_request(status='accepted')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'אושרה')
+
+    def test_track_status_rejected(self):
+        req = self.create_request(status='rejected')
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertContains(response, 'נדחתה')
+
+    def test_forbidden_access_to_other_students_request(self):
+        other_user = User.objects.create_user(
+            username='student2',
+            password='test789',
+            role='student',
+            email='student2@example.com',
+            phone='0500000003',
+            id_number='333333333',
+            department='הנדסה',
+            date_start='2023-10-10'
+        )
+
+        other_student = Student.objects.create(user=other_user, year_of_study=1, degree_type='bachelor')
+        req = Request.objects.create(
+            title='Other Request',
+            description='Not yours',
+            status='accepted',
+            request_type='other',
+            student=other_student,
+            assigned_to=self.academic
+        )
+        self.client.login(username='student1', password='test123')
+        response = self.client.get(reverse('track_status', args=[req.id]))
+        self.assertEqual(response.status_code, 404)
+
+
+
+
+from django.test import TestCase, Client
+from django.urls import reverse
+from app.models import Request, Student, User
+from datetime import datetime
+
+class SecretaryRequestDetailViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        self.secretary_user = User.objects.create_user(
+            username='secretary1',
+            password='testpass123',
+            role='secretary',
+            phone='0501234567',
+            id_number='123456789',
+            department='הנדסה'
+        )
+
+        self.student_user = User.objects.create_user(
+            username='student1',
+            password='studentpass',
+            role='student',
+            phone='0509876543',
+            id_number='987654321',
+            department='מדעי המחשב'
+        )
+
+        self.student = Student.objects.create(
+            user=self.student_user,
+            year_of_study=2,
+            degree_type='bachelor',
+            current_year_of_study=2,
+            current_semester='A'
+        )
+
+        self.request_obj = Request.objects.create(
+            student=self.student,
+            title='בדיקת בקשה',
+            description='זוהי בקשת בדיקה',
+            status='pending',
+            assigned_to=self.secretary_user,
+            submitted_at=datetime.now()
+        )
+
+    def test_view_returns_200_for_valid_request(self):
+        self.client.login(username='secretary1', password='testpass123')
+        url = reverse('request_detail_view_secretary', args=[self.request_obj.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'request_detail_view_secretary.html')
+        self.assertContains(response, 'בדיקת בקשה')  # כותרת הבקשה
+
+    def test_view_404_for_invalid_request_id(self):
+        self.client.login(username='secretary1', password='testpass123')
+        url = reverse('request_detail_view_secretary', args=[9999])  # לא קיים
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
