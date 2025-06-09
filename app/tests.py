@@ -213,7 +213,151 @@ class RequestAPITests(TestCase):
         self.assertIn("בקשה למטלה חלופית - חרבות ברזל", html)
         self.assertIn("דחיית הגשת עבודה", html)
         self.assertIn("שחרור חסימת קורס", html)
+     # Test individual filters return expected results
+    def test_filter_by_request_type(self):
+      self.client.login(username='academic1', password='pass123456')
+      response = self.client.get('/api/requests/academic/?status=pending&type=iron_swords')
+      data = response.json()
+      self.assertEqual(len(data), 1)
+      self.assertEqual(data[0]['request_type'], 'iron_swords')
+   # Test combinations of filters:
+    def test_combined_filters(self):
+        self.student.current_year_of_study = 2
+        self.student.current_semester = 'A'
+        self.student.save()
 
+        self.client.login(username='academic1', password='pass123456')
+        url = '/api/requests/academic/?status=pending&type=iron_swords&year=2&semester=A'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for r in data:
+            self.assertEqual(r['request_type'], 'iron_swords')
+            self.assertEqual(r['education_year'], 2)
+            self.assertEqual(r['semester'], 'A')
+
+     # Test invalid values:
+    def test_invalid_filter_values(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending&type=nonexistent')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+    #Test that dropdown options render correctly (indirect, via API):
+    def test_course_dropdown_options_api(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/academic/courses/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.json(), list)
+     #No matching results → “No requests HERE”:
+    def test_no_matching_filters_returns_empty(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending&type=delay_submission')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+     # No filters selected (return all assigned with status):
+    def test_no_filters_returns_all_requests_for_status(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 2)
+
+class AcademicFilteringIntegrationTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.client = Client()
+
+        # Academic setup
+        self.academic_user = User.objects.create_user(
+            username='academic_user',
+            password='securepass',
+            role='academic',
+            id_number='999000111',
+            phone='0509990001',
+            email='academic@uni.com'
+        )
+        self.academic, _ = AcademicStaff.objects.get_or_create(user=self.academic_user)
+
+
+        # Student setup
+        self.student_user = User.objects.create_user(
+            username='student_user',
+            password='securepass',
+            role='student',
+            id_number='888000111',
+            phone='0508880001',
+            email='student@uni.com'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=3,
+            current_year_of_study=3,
+            current_semester='B'
+        )
+
+        self.course = Course.objects.create(name='מערכות הפעלה', semester='B', year_of_study=3)
+        self.offering = CourseOffering.objects.create(
+            course=self.course,
+            instructor=self.academic,
+            year="2024-2025",
+            semester='B'
+        )
+
+        # Add one request to test filters
+        Request.objects.create(
+            title='מערכות הפעלה - academic_user | דחיית הגשה',
+            description='Filter integration test',
+            request_type='delay_submission',
+            status='in_progress',
+            student=self.student,
+            assigned_to=self.academic_user
+        )
+
+    def test_combined_valid_filters(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'type': 'delay_submission',
+            'year': '3',
+            'semester': 'B',
+            'course': 'מערכות הפעלה'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_course_filter_case_insensitive(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'course': 'מערכות הפעלה'.lower()
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_no_filters_returns_all_status_filtered(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {'status': 'in_progress'})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.json()), 1)
+
+    def test_invalid_filter_value_returns_empty(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'type': 'non_existing_type'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_dropdown_data_format_course_names(self):
+        self.client.login(username='academic_user', password='securepass')
+        response = self.client.get(reverse('academic_courses_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('מערכות הפעלה', response.json())
 
 class LogoutTests(TestCase):
     def setUp(self):
@@ -1028,7 +1172,7 @@ class SubmitInstructorRequestIntegrationTests(TestCase):
         self.post_request('submit_cancel_hw_percent', 'cancel_hw_percent')
 
     def test_submit_delay_submission(self):
-        self.post_request('submit_delay_submission', 'delay_assignment')
+        self.post_request('submit_delay_submission', 'delay_submission')
 
     def test_submit_include_hw_grade(self):
         self.post_request('submit_include_hw_grade', 'include_hw_grade')

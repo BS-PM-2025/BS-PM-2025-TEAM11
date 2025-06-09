@@ -5,14 +5,18 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .models import Request
-from django.http import JsonResponse
+
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 
 from app.models import Request, Student
 
 from .models import User
+from django.http import JsonResponse
+from .models import Course  # adjust this based on your actual model
 
+from .models import Request, CourseOffering
+from django.db.models import F
 
 def login_view(request):
     if request.method == 'POST':
@@ -156,32 +160,85 @@ def secretary_requests_api(request):
 
     return JsonResponse(data, safe=False)
 
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import Request
+
 
 @login_required
-
-@never_cache
 def academic_requests_api(request):
-    # Get status from query parameters
-    status = request.GET.get('status')
-    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
-
-    if status not in valid_statuses:
-        return JsonResponse({'error': 'Invalid status'}, status=400)
-
     user = request.user
-    # Check that the user has 'academic' role
     if not hasattr(user, 'role') or user.role != 'academic':
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # Filter requests assigned to this academic user
-    requests_qs = Request.objects.filter(assigned_to=user, status=status)
+    status = request.GET.get('status')
+    if status not in ['pending', 'in_progress', 'accepted', 'rejected']:
+        return JsonResponse({'error': 'Invalid status'}, status=400)
 
-    # Serialize and return data
-    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
+    # Optional filters
+    request_type = request.GET.get('type')
+    year = request.GET.get('year')
+    semester = request.GET.get('semester')
+    course_name = request.GET.get('course')
+
+    # Start building the query
+    requests_qs = Request.objects.filter(
+        assigned_to=user,
+        status=status
+    ).select_related('assigned_by', 'assigned_to', 'student')
+
+    # Filter type
+    if request_type:
+        if request_type == "forwarded_from_secretary":
+            requests_qs = requests_qs.filter(request_type='other', assigned_by__role='secretary')
+
+        else:
+            requests_qs = requests_qs.filter(request_type=request_type)
+
+    # Year and semester (from student's current info)
+    if year:
+        requests_qs = requests_qs.filter(student__current_year_of_study=year)
+    if semester:
+        requests_qs = requests_qs.filter(student__current_semester=semester)
+
+    # Course (match title or offering)
+    if course_name:
+        requests_qs = requests_qs.filter(title__icontains=course_name)
+
+    # Serialize the data
+    data = []
+    for r in requests_qs:
+        course_name = extract_course_from_title(r.title)  # make sure this function exists
+        data.append({
+            'id': r.id,
+            'title': r.title,
+            'description': r.description,
+            'status': r.status,
+            'submitted_at': r.submitted_at,
+            'request_type': r.request_type,
+            'education_year': getattr(r.student, 'current_year_of_study', None),
+            'semester': getattr(r.student, 'current_semester', None),
+            'course_name': course_name,
+            'forwarded_from_secretary': (
+                    r.request_type == 'other' and getattr(r.assigned_by, 'role', '') == 'secretary'
+            ),
+            'debug_info': r.request_type + " | " + str(getattr(r.assigned_to, 'role', ''))  # just for logging
+
+        })
+
     return JsonResponse(data, safe=False)
+
+def extract_course_from_title(title):
+    parts = title.split('-')
+    return parts[0].strip() if parts else ''
+
+@login_required
+def academic_courses_api(request):
+    user = request.user
+    if user.role != 'academic':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    titles = Request.objects.filter(assigned_to=user).values_list('title', flat=True)
+    course_names = set([extract_course_from_title(t) for t in titles if '-' in t])
+    return JsonResponse(list(course_names), safe=False)
+
 @login_required
 @never_cache
 def secretary_dashboard_other(request):
@@ -722,7 +779,7 @@ def submit_delay_submission(request):
         Request.objects.create(
             title=full_title,
             description=description,
-            request_type='delay_assignment',
+            request_type='delay_submission',
             student=student,
             assigned_to=lecturer,  # נשלח למרצה
             attachment=attachment if attachment else None
@@ -871,6 +928,7 @@ def view_request_details_for_other(request, request_id):
             assignee = get_object_or_404(User, id=assignee_id)
 
             # ✅ תמיד מעדכנים את המטופל החדש, גם אם זו אותה המזכירה
+            req.assigned_by = request.user
             req.assigned_to = assignee
             req.status = 'pending'
             # אם מעבירים למזכירה עצמה => עדכן את סוג הבקשה
