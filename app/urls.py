@@ -25,6 +25,8 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('logout_confirmed/', views.logout_confirmed, name='logout_confirmed'),
     path('api/academic/courses/', views.academic_courses_api, name='academic_courses_api'),
+    path('api/secretary/requests/', views.secretary_requests_api, name='secretary_requests_api'),
+    path('api/secretary/courses/', views.secretary_courses_api, name='secretary_courses_api'),
 
     path('send-verification-code/', views.send_verification_code, name='send_verification_code'),
     path('verify-code/', views.verify_code, name='verify_code'),

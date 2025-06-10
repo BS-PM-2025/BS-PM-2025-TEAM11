@@ -138,29 +138,68 @@ from app.models import Request
 @never_cache
 def secretary_requests_api(request):
     user = request.user
+    status = request.GET.get("status", "pending")
+    filter_type = request.GET.get("type")
+    filter_year = request.GET.get("year")
+    filter_semester = request.GET.get("semester")
+    filter_course = request.GET.get("course")
 
-    requests = Request.objects.filter(
+    all_requests = Request.objects.filter(
         assigned_to=user,
-        status='pending'
-    ).exclude(request_type='other')  # ✅ exclude "other" requests
+        status=status
+    )
 
-    data = [
-        {
-            'id': r.id,
-            'title': r.title,
-            'description': r.description,
-            'status': r.status,
-            'submitted_at': r.submitted_at,
-            'request_type': r.request_type,
-            'assigned_to': r.assigned_to.id,
-            'secretary_id': user.id
-        }
-        for r in requests
-    ]
+    filtered = []
+    for r in all_requests:
+        student = r.student
+        course_name = ''
+        for c in Course.objects.all():
+            if c.name in r.title:
+                course_name = c.name
+                break
 
-    return JsonResponse(data, safe=False)
+        # Filter by type
+        if filter_type:
+            if filter_type == 'forwarded_from_secretary' and not r.assigned_by == user:
+                continue
+            elif filter_type != 'forwarded_from_secretary' and r.request_type != filter_type:
+                continue
 
+        # Filter by year
+        if filter_year and str(student.current_year_of_study) != filter_year:
+            continue
 
+        # Filter by semester
+        if filter_semester and student.current_semester != filter_semester:
+            continue
+
+        # Filter by course name
+        if filter_course and course_name.strip() != filter_course.strip():
+            continue
+
+        filtered.append({
+            "id": r.id,
+            "title": r.title,
+            "description": r.description,
+            "status": r.status,
+            "submitted_at": r.submitted_at,
+            "request_type": r.request_type,
+            "education_year": student.current_year_of_study,
+            "semester": student.current_semester,
+            "course_name": course_name,
+            "forwarded_from_secretary": r.assigned_by == user
+        })
+
+    return JsonResponse(filtered, safe=False)
+
+login_required
+def secretary_courses_api(request):
+    user = request.user
+    if user.role != 'secretary':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    all_courses = Course.objects.values_list('name', flat=True).distinct()
+    return JsonResponse(sorted(all_courses), safe=False)
 
 @login_required
 def academic_requests_api(request):
@@ -226,8 +265,10 @@ def academic_requests_api(request):
     return JsonResponse(data, safe=False)
 
 def extract_course_from_title(title):
-    parts = title.split('-')
-    return parts[0].strip() if parts else ''
+    if not title or '-' not in title:
+        return ''
+    return title.split('-')[0].strip()
+
 
 @login_required
 def academic_courses_api(request):

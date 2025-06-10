@@ -134,17 +134,11 @@ class RequestAPITests(TestCase):
         )
 
     def test_secretary_requests_api(self):
-        # Create a test user with the 'secretary' role
         user = User.objects.create_user(username='testuser', password='password', role='secretary')
+
         self.client.login(username='testuser', password='password')
-
-        # Reverse the URL for the secretary request API
         url = reverse('secretary_requests_api')
-
-        # Now make the API request
         response = self.client.get(url)
-
-        # Check that the statusu code is 200 (OK)
         self.assertEqual(response.status_code, 200)
 
     def test_invalid_status_for_academic_requests_api(self):
@@ -358,6 +352,104 @@ class AcademicFilteringIntegrationTests(TestCase):
         response = self.client.get(reverse('academic_courses_api'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('מערכות הפעלה', response.json())
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.utils import timezone
+from app.models import User, Student, Secretary, Course, Request
+
+class SecretaryFilteringIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.User = User
+
+        # Create Secretary
+        self.secretary_user = User.objects.create_user(
+            username='secretary_filter_user',
+            password='securepass',
+            role='secretary',
+            id_number='777000999',
+            phone='0507770009',
+            email='secretary_filter@uni.com',
+            department='CS'
+        )
+        Secretary.objects.get_or_create(user=self.secretary_user)
+
+        # Create Student
+        self.student_user = User.objects.create_user(
+            username='student_filter_user',
+            password='securepass',
+            role='student',
+            id_number='888000999',
+            phone='0508880009',
+            email='student_filter@uni.com',
+            department='CS'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=2,
+            current_year_of_study=2,
+            current_semester='A'
+        )
+
+        # Just create course for dropdown test
+        self.course = Course.objects.create(name='מערכות מידע', semester='A', year_of_study=2)
+
+        # Create a request without course field (which doesn't exist in model)
+        Request.objects.create(
+            title='שחרור חסימה - בדיקה',
+            description='בדיקת מסננים למזכירה',
+            request_type='course_unblock',
+            status='accepted',
+            student=self.student,
+            assigned_to=self.secretary_user,
+            assigned_by=self.secretary_user,
+            submitted_at=timezone.now()
+        )
+
+    def test_combined_valid_filters(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'accepted',
+            'request_type': 'course_unblock',
+            'year_of_study': '2',
+            'semester': 'A'
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['request_type'], 'course_unblock')
+
+    def test_no_filters_returns_all_requests_for_status(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {'status': 'accepted'})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.json()), 1)
+
+    def test_invalid_filter_returns_empty(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        # Valid type, but none match status = 'rejected'
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'rejected',
+            'request_type': 'course_unblock'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_no_matching_filters_returns_empty(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'pending',
+            'request_type': 'delay_submission'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_course_dropdown_options_api(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_courses_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('מערכות מידע', response.json())
 
 class LogoutTests(TestCase):
     def setUp(self):
