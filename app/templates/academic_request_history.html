@@ -243,21 +243,21 @@ footer {
     <a href="{% url 'academic_dashboard' %}" class="btn-back">
   <span style="font-size: 18px;">⬅</span> חזרה לדף הבית
 </a>
-    <h2>Request History</h2>
+    <h2>היסטוריית הבקשות</h2>
 
     <!-- Category Buttons -->
     <div class="category-buttons">
     <button class="active" onclick="showRequests('pending', event)">
-        <i class="fas fa-hourglass-half"></i> Pending
+        <i class="fas fa-hourglass-half"></i> ממתינה
     </button>
     <button onclick="showRequests('in_progress', event)">
-        <i class="fas fa-spinner"></i> In-Progress
+        <i class="fas fa-spinner"></i>   בטיפול
     </button>
     <button onclick="showRequests('accepted', event)">
-        <i class="fas fa-check-circle"></i> Accepted
+        <i class="fas fa-check-circle"></i> התקבלה
     </button>
     <button onclick="showRequests('rejected', event)">
-        <i class="fas fa-times-circle"></i> Rejected
+        <i class="fas fa-times-circle"></i> נדחתה
     </button>
 </div>
 
@@ -390,10 +390,18 @@ function renderRequests(data) {
     const container = document.getElementById('request-table-container');
     const countLabel = document.getElementById('request-count');
 
-    countLabel.textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;
+    countLabel.textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;if (data.length === 0) {
+    countLabel.textContent = "לא נמצאו בקשות";
+} else if (data.length === 1) {
+    countLabel.textContent = "1 בקשה";
+} else {
+    countLabel.textContent = `${data.length} : בקשות`;
+}
+
 
     if (data.length === 0) {
-        container.innerHTML = `<p>No requests HERE.</p>`;
+       container.innerHTML = `<p>לא נמצאו בקשות להצגה.</p>`;
+
     } else {
         let html = '';
         data.forEach(request => {

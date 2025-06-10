@@ -111,21 +111,49 @@ def student_dashboard(request):
     return render(request, 'student_dashboard.html', {'request_types': request_types})
 
 
-@login_required
-@never_cache
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from .models import Request, Student
 
 @login_required
 @never_cache
 def student_request_history_view(request):
+    status_filter = request.GET.get('status')
+    requests_qs = []
+
     try:
         student_profile = Student.objects.get(user=request.user)
-        requests = Request.objects.filter(
-            student=student_profile,
-            status__in=['pending', 'accepted', 'rejected', 'in_progress']
-        ).order_by('-submitted_at')
+        requests_qs = Request.objects.filter(student=student_profile)
+
+        if status_filter in ['pending', 'accepted', 'rejected', 'in_progress']:
+            requests_qs = requests_qs.filter(status=status_filter)
+
+        requests_qs = requests_qs.order_by('-submitted_at')
+
     except Student.DoesNotExist:
-        requests = []
-    return render(request, 'student_request_history.html', {'requests': requests})
+        requests_qs = []  # fallback if student not found
+
+    # ✅ Always respond with valid HttpResponse
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        data = [
+            {
+                'id': req.id,
+                'status': req.status,
+                'title': req.title,
+                'submitted_at': req.submitted_at.strftime('%d/%m/%Y')
+            }
+            for req in requests_qs
+        ]
+        return JsonResponse({'requests': data})
+
+    return render(request, 'student_request_history.html', {
+        'requests': requests_qs,
+        'selected_status': status_filter
+    })
+
+
 
 
 
@@ -192,7 +220,6 @@ def secretary_requests_api(request):
 
     return JsonResponse(filtered, safe=False)
 
-login_required
 def secretary_courses_api(request):
     user = request.user
     if user.role != 'secretary':

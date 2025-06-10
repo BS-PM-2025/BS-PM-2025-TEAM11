@@ -1759,3 +1759,141 @@ class SecretaryRequestDetailViewTests(TestCase):
         url = reverse('request_detail_view_secretary', args=[9999])  # לא קיים
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
+class StudentRequestFilterTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        # Create student and user
+        self.student_user = User.objects.create_user(
+            username='student_filter_test',
+            password='securepass',
+            role='student',
+            id_number='999000111',
+            phone='0509990001',
+            email='student_filter@test.com'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=2,
+            current_year_of_study=2,
+            current_semester='A'
+        )
+
+        # Login student for authenticated requests
+        self.client.login(username='student_filter_test', password='securepass')
+
+        # Create dummy academic user to assign requests to
+        self.assigned_user = User.objects.create_user(
+            username='assigned_academic',
+            password='pass123',
+            role='academic',
+            id_number='777000999',
+            phone='0507770009',
+            email='academic@uni.com'
+        )
+
+        now = timezone.now()
+
+        # Create requests with different statuses
+        self.pending_request = Request.objects.create(
+            title='Pending Request',
+            description='Pending test',
+            request_type='delay_submission',
+            status='pending',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.in_progress_request = Request.objects.create(
+            title='In Progress Request',
+            description='In progress test',
+            request_type='delay_submission',
+            status='in_progress',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.accepted_request = Request.objects.create(
+            title='Accepted Request',
+            description='Accepted test',
+            request_type='delay_submission',
+            status='accepted',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.rejected_request = Request.objects.create(
+            title='Rejected Request',
+            description='Rejected test',
+            request_type='delay_submission',
+            status='rejected',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+    def test_filter_by_each_status(self):
+        statuses = {
+            'pending': self.pending_request,
+            'in_progress': self.in_progress_request,
+            'accepted': self.accepted_request,
+            'rejected': self.rejected_request,
+        }
+        for status, req in statuses.items():
+            response = self.client.get(
+                reverse('student_request_history'),
+                {'status': status},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, req.title)
+
+    def test_cannot_see_other_student_requests(self):
+        other_user = User.objects.create_user(
+            username='other_student',
+            password='pass123',
+            role='student',
+            id_number='987654321',
+            email='other@test.com',
+            phone='0501111111'
+        )
+        other_student = Student.objects.create(user=other_user, year_of_study=2, degree_type='bachelor')
+        Request.objects.create(
+            title='Hidden Request',
+            status='pending',
+            student=other_student,
+            assigned_to=self.assigned_user,
+            submitted_at=timezone.now()
+        )
+
+        response = self.client.get(
+            reverse('student_request_history'),
+            {'status': 'pending'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Hidden Request')
+
+    def test_empty_state_when_no_matching_requests(self):
+        # Delete all requests
+        Request.objects.filter(student=self.student).delete()
+
+        response = self.client.get(
+            reverse('student_request_history'),
+            {'status': 'pending'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'requests': []})
+
+    def test_ui_behavior_no_filter(self):
+        response = self.client.get(reverse('student_request_history'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.pending_request.title)
+        self.assertContains(response, self.in_progress_request.title)
+        self.assertContains(response, self.accepted_request.title)
+        self.assertContains(response, self.rejected_request.title)

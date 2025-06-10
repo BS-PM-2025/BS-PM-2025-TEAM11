@@ -139,6 +139,35 @@
     box-shadow: 0 0 16px var(--track-glow, #FFA500);
 }
 
+.filter-buttons {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+    gap: 12px;
+}
+
+.filter-btn {
+    padding: 10px 20px;
+    background-color: #ffffff;
+    border: 2px solid #008B8B;
+    border-radius: 8px;
+    color: #008B8B;
+    font-weight: bold;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background-color: #008B8B;
+    color: white;
+}
+
+.filter-btn.active {
+    background-color: #008B8B;
+    color: white;
+    box-shadow: 0 0 12px rgba(0, 139, 139, 0.4);
+}
 
     </style>
 </head>
@@ -146,6 +175,13 @@
 
 <h1>היסטוריית הבקשות שלי</h1>
 
+<div class="filter-buttons">
+  <a href="?status=pending" class="filter-btn {% if selected_status == 'pending' %}active{% endif %}">ממתינה</a>
+  <a href="?status=in_progress" class="filter-btn {% if selected_status == 'in_progress' %}active{% endif %}">בטיפול</a>
+  <a href="?status=accepted" class="filter-btn {% if selected_status == 'accepted' %}active{% endif %}">התקבלה</a>
+  <a href="?status=rejected" class="filter-btn {% if selected_status == 'rejected' %}active{% endif %}">נדחתה</a>
+  <a href="{% url 'student_request_history' %}" class="filter-btn {% if not selected_status %}active{% endif %}">הצג הכל</a>
+</div>
 
 
 
@@ -230,6 +266,63 @@ function closeLogoutModal() {
 function confirmLogout() {
     window.location.href = "{% url 'logout_confirmed' %}";
 }
+</script>
+<script>
+document.querySelectorAll('.filter-btn').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const status = new URL(this.href).searchParams.get('status') || '';
+
+        fetch(`?status=${status}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.querySelector('tbody');
+            tableBody.innerHTML = '';
+
+            if (data.requests.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5">לא נמצאו בקשות.</td></tr>';
+            } else {
+                data.requests.forEach((req, index) => {
+                    const statusText = {
+                        'accepted': `<i class="fas fa-check-circle" style="color: green;"></i> התקבלה`,
+                        'rejected': `<i class="fas fa-times-circle" style="color: red;"></i> נדחתה`,
+                        'in_progress': `<i class="fas fa-spinner" style="color: orange;"></i> בטיפול`,
+                        'pending': `<i class="fas fa-hourglass-half" style="color: gray;"></i> ממתינה`,
+                    }[req.status] || req.status;
+
+                  let actionBtn = '';
+                    if (req.status === 'accepted') {
+                         actionBtn = `<a href="/student/request-details/${req.id}/" class="action-button view-button" style="--view-glow: #2ecc71;">צפייה</a>`;
+                    } else if (req.status === 'rejected') {
+                          actionBtn = `<a href="/student/request-details/${req.id}/" class="action-button view-button" style="--view-glow: #e74c3c;">צפייה</a>`;
+                    } else {
+                        actionBtn = `<a href="/track_status/${req.id}/" class="action-button track-button">מעקב</a>`;
+                    }
+
+
+
+
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${statusText}</td>
+                            <td>${req.title}</td>
+                            <td>${req.submitted_at}</td>
+                            <td>${actionBtn}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+});
 </script>
 
 </body>
