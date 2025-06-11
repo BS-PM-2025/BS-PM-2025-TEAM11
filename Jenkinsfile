@@ -33,6 +33,30 @@ pipeline {
 
             }
         }
+
+        stage('Calculate Defect Density') {
+           steps {
+             echo '📊 Calculating Defect Density...'
+             sh '''
+            # Count test failures from pytest results
+            FAILURES=$(grep -o 'failures="\\?[0-9]\\+"' test-results.xml | grep -o '[0-9]')
+
+            # Count lines of code (excluding tests/migrations/venv)
+            LOC=$(find app -name "*.py" ! -path "*tests*" ! -path "*migrations*" ! -path "*venv*" | xargs wc -l | tail -n1 | awk '{print $1}')
+
+            if [ "$LOC" -gt 0 ]; then
+                DEFECT_DENSITY=$(echo "scale=2; $FAILURES / $LOC * 1000" | bc)
+            else
+                DEFECT_DENSITY=0
+            fi
+
+            echo "📈 Defect Density: $DEFECT_DENSITY defects per 1000 LOC"
+        '''
+    }
+}
+
+
+
     }
 
     post {
