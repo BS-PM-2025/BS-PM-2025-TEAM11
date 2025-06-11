@@ -182,6 +182,26 @@ document.querySelectorAll('.status-button').forEach(btn => {
 
 
 </script>
+<div id="logoutModal" class="modal">
+  <div class="modal-content">
+    <p>האם את/ה בטוח/ה שברצונך להתנתק ? </p>
+    <div class="modal-buttons">
+      <button onclick="confirmLogout()" class="btn-confirm">אישור</button>
+      <button onclick="closeLogoutModal()" class="btn-cancel">ביטול</button>
+    </div>
+  </div>
+</div>
 
+<script>
+function openLogoutModal() {
+    document.getElementById("logoutModal").style.display = "block";
+}
+function closeLogoutModal() {
+    document.getElementById("logoutModal").style.display = "none";
+}
+function confirmLogout() {
+    window.location.href = "{% url 'logout_confirmed' %}";
+}
+</script>
 </body>
 </html>

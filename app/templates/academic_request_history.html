@@ -110,6 +110,7 @@ footer {
     background-color: #006666;
 }
 .btn-back {
+    display: inline-block; /* ensures it's a "box" */
     background-color: #d3e2e2;
     color: #004d4d;
     border: none;
@@ -119,15 +120,16 @@ footer {
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s;
+    text-decoration: none;       /* removes underline */
+    text-align: center;
+    vertical-align: middle;      /* fixes vertical alignment */
+    line-height: normal;         /* avoid odd spacing */
 }
 
 .btn-back:hover {
     background-color: #b5d1d1;
 }
-.btn-back-wrapper {
-    margin: 20px;
-    text-align: left;
-}
+
 .modal {
   display: none;
   position: fixed;
@@ -177,35 +179,123 @@ footer {
   background-color: #eee;
   color: #333;
 }
+/* Secondary Filters Wrapper */
+#secondary-filters {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background-color: #f2f9fa;
+    border-radius: 10px;
+    border: 1px solid #cce1e1;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+}
+
+/* Individual Dropdown Styling */
+#secondary-filters select {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 13px;
+    min-width: 110px;
+    background-color: white;
+    transition: border-color 0.2s ease;
+    height: 32px;
+}
+
+/* Focus Effect */
+#secondary-filters select:focus {
+    outline: none;
+    border-color: #007a7a;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .category-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #secondary-filters {
+        flex-direction: column;
+        align-items: center;
+        padding: 12px;
+    }
+
+    #secondary-filters select {
+        margin-bottom: 10px;
+        width: 90%;
+        min-width: unset;
+    }
+}
+
+
     </style>
 </head>
 <body>
 
 <div class="page-wrapper">
-    <button onclick="goBack()" class="btn-back">
-        ⬅ Back to HomePage
-    </button>
-    <h2>Request History</h2>
+    <a href="{% url 'academic_dashboard' %}" class="btn-back">
+  <span style="font-size: 18px;">⬅</span> חזרה לדף הבית
+</a>
+    <h2>היסטוריית הבקשות</h2>
 
     <!-- Category Buttons -->
     <div class="category-buttons">
     <button class="active" onclick="showRequests('pending', event)">
-        <i class="fas fa-hourglass-half"></i> Pending
+        <i class="fas fa-hourglass-half"></i> ממתינה
     </button>
     <button onclick="showRequests('in_progress', event)">
-        <i class="fas fa-spinner"></i> In-Progress
+        <i class="fas fa-spinner"></i>   בטיפול
     </button>
     <button onclick="showRequests('accepted', event)">
-        <i class="fas fa-check-circle"></i> Accepted
+        <i class="fas fa-check-circle"></i> התקבלה
     </button>
     <button onclick="showRequests('rejected', event)">
-        <i class="fas fa-times-circle"></i> Rejected
+        <i class="fas fa-times-circle"></i> נדחתה
     </button>
 </div>
 
 
     <!-- Count -->
     <div id="request-count" class="count-label"></div>
+<!-- Secondary Filters (Academic Only) -->
+<div id="secondary-filters" style="display: none; margin-bottom: 20px; gap: 12px; justify-content: center; flex-wrap: wrap; background-color: #f2f9fa; padding: 12px; border-radius: 10px; border: 1px solid #cce1e1;">
+ <select id="filter-type" onchange="showRequests(latestStatus, { target: document.querySelector(`.category-buttons button.active`) })">
+
+  <option value="">סוג בקשה</option>
+  <option value="cancel_hw_percent">ביטול אחוז עבודות בית</option>
+  <option value="iron_swords">בקשה למטלה חלופית - חרבות ברזל</option>
+  <option value="delay_submission">דחיית הגשה</option>
+  <option value="include_hw_grade">שקלול עבודות</option>
+  <option value="forwarded_from_secretary">בקשות שהועברו מהמזכירה</option>
+</select>
+
+
+  <select id="filter-year" onchange="filterRequests()">
+    <option value="">שנה</option>
+    <option value="1">שנה א</option>
+    <option value="2">שנה ב</option>
+    <option value="3">שנה ג</option>
+    <option value="4">שנה ד</option>
+  </select>
+
+  <select id="filter-semester" onchange="filterRequests()">
+    <option value="">סמסטר</option>
+    <option value="A">סמסטר א</option>
+    <option value="B">סמסטר ב</option>
+  </select>
+
+  <select id="filter-course" onchange="filterRequests()">
+    <option value="">קורס</option>
+    <!-- Optional: load courses dynamically later -->
+  </select>
+</div>
 
     <!-- Request List -->
     <div id="request-table-container">
@@ -214,63 +304,145 @@ footer {
 
     <!-- JavaScript -->
     <script>
-        function showRequests(status, event) {
-            const buttons = document.querySelectorAll('.category-buttons button');
-            buttons.forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+   let latestStatus = 'pending';  // Add this above window.onload
 
-            fetch(`/api/requests/?status=${status}`)
-                .then(response => response.json())
-                .then(data => {
-                    const container = document.getElementById('request-table-container');
-                    const countLabel = document.getElementById('request-count');
+function showRequests(status, event) {
+    latestStatus = status;  // Save selected status
 
-                    // Update count
-                    countLabel.textContent = `${data.length} request${data.length !== 1 ? 's' : ''} `;
-
-                    if (data.length === 0) {
-                        container.innerHTML = `<p>No requests HERE.</p>`;
-                    } else {
-                        let html = '';
-                        data.forEach(request => {
-                             html += `
-    <div class="request-box">
-        <strong>${request.title}</strong><br>
-        <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
-        <small><strong>Status:</strong> ${request.status}</small><br>
-${
-  request.status === 'in_progress'
-    ? `<a href="/requests/${request.id}/" class="view-btn">צפייה</a>`
-    : (request.status === 'accepted' || request.status === 'rejected')
-    ? `<a href="/requests/${request.id}/academic/" class="view-btn">צפייה</a>`
-    : ''
+    const buttons = document.querySelectorAll('.category-buttons button');
+    buttons.forEach(btn => btn.classList.remove('active'));
+   if (event && event.target) {
+    event.target.classList.add('active');
 }
 
-    </div>
-`;
-                        });
-                        container.innerHTML = html;
-                    }
-                })
-                .catch(error => {
-                    console.error("Error fetching requests:", error);
-                    document.getElementById('request-table-container').innerHTML =
-                        `<p style="color:red;">Failed to load requests.</p>`;
-                });
-        }
+
+    // Show secondary filters
+    document.getElementById('secondary-filters').style.display = 'flex';
+const type = document.getElementById('filter-type').value;
+const year = document.getElementById('filter-year').value;
+const semester = document.getElementById('filter-semester').value;
+const course = document.getElementById('filter-course').value;
+  console.log("Filter values →", {
+        type,
+        year,
+        semester,
+        course
+    });
+const url = new URL('/api/requests/academic/', window.location.origin);
+url.searchParams.append('status', status);
+if (type) url.searchParams.append('type', type);
+if (year) url.searchParams.append('year', year);
+if (semester) url.searchParams.append('semester', semester);
+if (course) url.searchParams.append('course', course);
+
+fetch(url)
+    .then(response => response.json())
+    .then(data => {
+        console.log("Received from API:", data);
+        window.fullRequestList = data;
+        renderRequests(data);
+    })
+    .catch(error => {
+        console.error("Error fetching requests:", error);
+        document.getElementById('request-table-container').innerHTML =
+            `<p style="color:red;">Failed to load requests.</p>`;
+    });
+
+}
+
 
         // Show "pending" on first load
         window.onload = () => showRequests('pending', { target: document.querySelector('button.active') });
-    </script>
-<script>
-function goBack() {
-    if (window.history.length > 1) {
-        window.history.back();
+
+    function filterRequests() {
+    const type = document.getElementById('filter-type').value;
+    const year = document.getElementById('filter-year').value;
+    const semester = document.getElementById('filter-semester').value;
+    const course = document.getElementById('filter-course').value;
+    console.log("Selected course filter:", course);
+    console.log("Available course names in requests:", window.fullRequestList.map(r => r.course_name));
+
+    let filtered = window.fullRequestList;
+
+    if (type) {
+        if (type === 'forwarded_from_secretary') {
+            filtered = filtered.filter(r => r.forwarded_from_secretary); // You must include this field from backend
+        } else {
+            filtered = filtered.filter(r => r.request_type === type);
+        }
+    }
+    if (year) filtered = filtered.filter(r => r.education_year == year);
+    if (semester) filtered = filtered.filter(r => r.semester === semester);
+   if (course) {
+    filtered = filtered.filter(r =>
+        r.course_name?.toLowerCase().trim() === course.toLowerCase().trim()
+    );
+    }
+    console.log("Filtered requests:", filtered);
+
+
+    renderRequests(filtered);
+
+
+    }
+
+function renderRequests(data) {
+    const container = document.getElementById('request-table-container');
+    const countLabel = document.getElementById('request-count');
+
+    countLabel.textContent = `${data.length} request${data.length !== 1 ? 's' : ''}`;if (data.length === 0) {
+    countLabel.textContent = "לא נמצאו בקשות";
+} else if (data.length === 1) {
+    countLabel.textContent = "1 בקשה";
+} else {
+    countLabel.textContent = `${data.length} : בקשות`;
+}
+
+
+    if (data.length === 0) {
+       container.innerHTML = `<p>לא נמצאו בקשות להצגה.</p>`;
+
     } else {
-        window.location.href = "/dashboard/";
+        let html = '';
+        data.forEach(request => {
+            html += `
+  <div class="request-box">
+    <strong>${request.title}</strong><br>
+    <small><strong>Submitted:</strong> ${new Date(request.submitted_at).toLocaleString()}</small><br>
+    <small><strong>Status:</strong> ${request.status}</small><br>
+    <div style="text-align: center; margin-top: 12px;">
+      <a href="/requests/${request.id}/${['accepted', 'rejected'].includes(request.status) ? 'academic/' : ''}" class="view-btn">צפייה</a>
+    </div>
+  </div>`;
+
+        });
+        container.innerHTML = html;
     }
 }
-</script>
+function loadCourses() {
+    fetch('/api/academic/courses/')
+        .then(response => response.json())
+        .then(courses => {
+            const courseSelect = document.getElementById('filter-course');
+            console.log("Courses loaded from API:", courses);
+            courses.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                courseSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Failed to load courses:', error));
+}
+
+
+window.onload = () => {
+    showRequests('pending', { target: document.querySelector('button.active') });
+    loadCourses();  // <-- this makes sure courses are loaded into the dropdown
+};
+
+    </script>
+
 
 </div>
 {% include 'partials/footer.html' %}

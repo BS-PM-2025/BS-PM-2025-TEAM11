@@ -5,14 +5,18 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .models import Request
-from django.http import JsonResponse
+
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 
 from app.models import Request, Student
 
 from .models import User
+from django.http import JsonResponse
+from .models import Course  # adjust this based on your actual model
 
+from .models import Request, CourseOffering
+from django.db.models import F
 
 def login_view(request):
     if request.method == 'POST':
@@ -107,21 +111,49 @@ def student_dashboard(request):
     return render(request, 'student_dashboard.html', {'request_types': request_types})
 
 
-@login_required
-@never_cache
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from .models import Request, Student
 
 @login_required
 @never_cache
 def student_request_history_view(request):
+    status_filter = request.GET.get('status')
+    requests_qs = []
+
     try:
         student_profile = Student.objects.get(user=request.user)
-        requests = Request.objects.filter(
-            student=student_profile,
-            status__in=['pending', 'accepted', 'rejected', 'in_progress']
-        ).order_by('-submitted_at')
+        requests_qs = Request.objects.filter(student=student_profile)
+
+        if status_filter in ['pending', 'accepted', 'rejected', 'in_progress']:
+            requests_qs = requests_qs.filter(status=status_filter)
+
+        requests_qs = requests_qs.order_by('-submitted_at')
+
     except Student.DoesNotExist:
-        requests = []
-    return render(request, 'student_request_history.html', {'requests': requests})
+        requests_qs = []  # fallback if student not found
+
+    # ✅ Always respond with valid HttpResponse
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        data = [
+            {
+                'id': req.id,
+                'status': req.status,
+                'title': req.title,
+                'submitted_at': req.submitted_at.strftime('%d/%m/%Y')
+            }
+            for req in requests_qs
+        ]
+        return JsonResponse({'requests': data})
+
+    return render(request, 'student_request_history.html', {
+        'requests': requests_qs,
+        'selected_status': status_filter
+    })
+
+
 
 
 
@@ -134,54 +166,153 @@ from app.models import Request
 @never_cache
 def secretary_requests_api(request):
     user = request.user
+    status = request.GET.get("status", "pending")
+    filter_type = request.GET.get("type")
+    filter_year = request.GET.get("year")
+    filter_semester = request.GET.get("semester")
+    filter_course = request.GET.get("course")
 
-    requests = Request.objects.filter(
+    all_requests = Request.objects.filter(
         assigned_to=user,
-        status='pending'
-    ).exclude(request_type='other')  # ✅ exclude "other" requests
+        status=status
+    )
 
-    data = [
-        {
+    # ❗ סינון שלא יכלול בקשות מסוג "אחר" שעדיין לא הועברו למרצה
+    all_requests = all_requests.exclude(
+        request_type='other',
+        assigned_by__isnull=True  # כלומר עדיין אצל המזכירה המקורית
+    )
+
+    filtered = []
+    for r in all_requests:
+        student = r.student
+        course_name = ''
+        for c in Course.objects.all():
+            if c.name in r.title:
+                course_name = c.name
+                break
+
+        # Filter by type
+        if filter_type:
+            if filter_type == 'forwarded_from_secretary' and not r.assigned_by == user:
+                continue
+            elif filter_type != 'forwarded_from_secretary' and r.request_type != filter_type:
+                continue
+
+        # Filter by year
+        if filter_year and str(student.current_year_of_study) != filter_year:
+            continue
+
+        # Filter by semester
+        if filter_semester and student.current_semester != filter_semester:
+            continue
+
+        # Filter by course name
+        if filter_course and course_name.strip() != filter_course.strip():
+            continue
+
+        filtered.append({
+            "id": r.id,
+            "title": r.title,
+            "description": r.description,
+            "status": r.status,
+            "submitted_at": r.submitted_at,
+            "request_type": r.request_type,
+            "education_year": student.current_year_of_study,
+            "semester": student.current_semester,
+            "course_name": course_name,
+            "forwarded_from_secretary": r.assigned_by == user
+        })
+
+    return JsonResponse(filtered, safe=False)
+
+def secretary_courses_api(request):
+    user = request.user
+    if user.role != 'secretary':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    all_courses = Course.objects.values_list('name', flat=True).distinct()
+    return JsonResponse(sorted(all_courses), safe=False)
+
+@login_required
+def academic_requests_api(request):
+    user = request.user
+    if not hasattr(user, 'role') or user.role != 'academic':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    status = request.GET.get('status')
+    if status not in ['pending', 'in_progress', 'accepted', 'rejected']:
+        return JsonResponse({'error': 'Invalid status'}, status=400)
+
+    # Optional filters
+    request_type = request.GET.get('type')
+    year = request.GET.get('year')
+    semester = request.GET.get('semester')
+    course_name = request.GET.get('course')
+
+    # Start building the query
+    requests_qs = Request.objects.filter(
+        assigned_to=user,
+        status=status
+    ).select_related('assigned_by', 'assigned_to', 'student')
+
+    # Filter type
+    if request_type:
+        if request_type == "forwarded_from_secretary":
+            requests_qs = requests_qs.filter(request_type='other', assigned_by__role='secretary')
+
+        else:
+            requests_qs = requests_qs.filter(request_type=request_type)
+
+    # Year and semester (from student's current info)
+    if year:
+        requests_qs = requests_qs.filter(student__current_year_of_study=year)
+    if semester:
+        requests_qs = requests_qs.filter(student__current_semester=semester)
+
+    # Course (match title or offering)
+    if course_name:
+        requests_qs = requests_qs.filter(title__icontains=course_name)
+
+    # Serialize the data
+    data = []
+    for r in requests_qs:
+        course_name = extract_course_from_title(r.title)  # make sure this function exists
+        data.append({
             'id': r.id,
             'title': r.title,
             'description': r.description,
             'status': r.status,
             'submitted_at': r.submitted_at,
             'request_type': r.request_type,
-            'assigned_to': r.assigned_to.id,
-            'secretary_id': user.id
-        }
-        for r in requests
-    ]
+            'education_year': getattr(r.student, 'current_year_of_study', None),
+            'semester': getattr(r.student, 'current_semester', None),
+            'course_name': course_name,
+            'forwarded_from_secretary': (
+                    r.request_type == 'other' and getattr(r.assigned_by, 'role', '') == 'secretary'
+            ),
+            'debug_info': r.request_type + " | " + str(getattr(r.assigned_to, 'role', ''))  # just for logging
+
+        })
 
     return JsonResponse(data, safe=False)
 
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import Request
+def extract_course_from_title(title):
+    if not title or '-' not in title:
+        return ''
+    return title.split('-')[0].strip()
+
 
 @login_required
-
-@never_cache
-def academic_requests_api(request):
-    # Get status from query parameters
-    status = request.GET.get('status')
-    valid_statuses = ['pending', 'in_progress', 'accepted', 'rejected']
-
-    if status not in valid_statuses:
-        return JsonResponse({'error': 'Invalid status'}, status=400)
-
+def academic_courses_api(request):
     user = request.user
-    # Check that the user has 'academic' role
-    if not hasattr(user, 'role') or user.role != 'academic':
+    if user.role != 'academic':
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
-    # Filter requests assigned to this academic user
-    requests_qs = Request.objects.filter(assigned_to=user, status=status)
+    titles = Request.objects.filter(assigned_to=user).values_list('title', flat=True)
+    course_names = set([extract_course_from_title(t) for t in titles if '-' in t])
+    return JsonResponse(list(course_names), safe=False)
 
-    # Serialize and return data
-    data = list(requests_qs.values('id', 'title', 'description', 'status', 'submitted_at'))
-    return JsonResponse(data, safe=False)
 @login_required
 @never_cache
 def secretary_dashboard_other(request):
@@ -443,24 +574,23 @@ def submit_prerequisite_exemption(request):
         student = get_object_or_404(Student, user=request.user)
         title = request.POST.get('title')
         description = request.POST.get('description')
-        course = request.POST.get('course')  # אפשר לשמור אותו בתוך ה-title או description אם אין שדה נפרד
-        request_type = 'prerequisite_exemption'
+        course_id = request.POST.get('course_id')
         attachment = request.FILES.get('attachment')
 
+        course = get_object_or_404(Course, id=course_id)
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-
-        full_title = f"({course}) {title}"
 
         Request.objects.create(
             title=full_title,
             description=description,
-            request_type=request_type,
+            request_type='prerequisite_exemption',
             student=student,
             assigned_to=secretary,
             attachment=attachment if attachment else None
         )
-
         return redirect('student_request_history')
+
 
 
 @login_required
@@ -489,19 +619,18 @@ from datetime import date
 @login_required
 def load_request_form(request):
     request_type = request.GET.get('type')
-    allowed_offerings = []
-
     student = Student.objects.get(user=request.user)
+
     today = date.today()
     year = today.year
     month = today.month
 
-    if month >= 10:  # אוקטובר, נובמבר, דצמבר – תחילת שנה אקדמית
+    if month >= 10:
         current_year = f"{year}-{year + 1}"
-    else:  # ינואר עד ספטמבר – עדיין בתוך השנה שהתחילה באוקטובר של השנה הקודמת
+    else:
         current_year = f"{year - 1}-{year}"
-    current_sem = student.current_semester or 'A'
 
+    current_sem = student.current_semester or 'A'
     all_enrollments = StudentCourseEnrollment.objects.filter(student=student)
     all_offerings = CourseOffering.objects.filter(
         course__in=[e.course for e in all_enrollments],
@@ -509,41 +638,58 @@ def load_request_form(request):
         semester__in=[e.semester for e in all_enrollments]
     )
 
-    if request_type == 'special_exam':
-        # הצג את כל הקורסים של שנים קודמות + הסמסטרים שכבר עברו בשנה הנוכחית
-        for o in all_offerings:
-            if o.year < current_year:
-                allowed_offerings.append(o)
-            elif o.year == current_year:
-                if current_sem == 'A' and o.semester == 'A':
-                    allowed_offerings.append(o)
-                elif current_sem == 'B':
-                    allowed_offerings.append(o)  # גם A וגם B
+    allowed_offerings = []
 
-    elif request_type == 'delay_submission':
-        # רק קורסים של השנה הנוכחית, כל הסמסטרים
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
+    if request_type == 'special_exam':
+        # כל ההרשמות של הסטודנט בשנים קודמות + השנה הנוכחית (עד הסמסטר הנוכחי)
+        relevant_enrollments = []
+        for enrollment in all_enrollments:
+            if enrollment.academic_year < current_year:
+                relevant_enrollments.append(enrollment)
+            elif enrollment.academic_year == current_year:
+                if current_sem == 'A' and enrollment.semester == 'A':
+                    relevant_enrollments.append(enrollment)
+                elif current_sem == 'B':
+                    relevant_enrollments.append(enrollment)
+
+        # קבלת שמות הקורסים הייחודיים מתוך ההרשמות
+        course_names = sorted(set(e.course.name for e in relevant_enrollments))
+
+        context = {
+            'request_type': request_type,
+            'course_names': course_names
+        }
+        return render(request, f'requests_forms/{request_type}.html', context)
+
+
+    elif request_type in ['delay_submission', 'cancel_hw_percent', 'include_hw_grade', 'iron_swords']:
+
+        for enrollment in all_enrollments:
+            if (
+                enrollment.academic_year == current_year and
+                enrollment.semester == current_sem
+            ):
+                matching_offerings = CourseOffering.objects.filter(
+                    course=enrollment.course,
+                    year=current_year,
+                    semester=current_sem
+                )
+                allowed_offerings.extend(matching_offerings)
+
 
     elif request_type in ['prerequisite_exemption', 'course_exemption', 'course_unblock', 'registration_exemption']:
-        allowed_offerings = list(CourseOffering.objects.all())
 
-    elif request_type == 'cancel_hw_percent':
-        # רק קורסים של השנה הנוכחית, כל הסמסטרים
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
-    elif request_type == 'include_hw_grade':
-        all_offerings = CourseOffering.objects.all()
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
-    elif request_type == 'iron_swords':
-        all_offerings = CourseOffering.objects.all()
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
+        allowed_courses = Course.objects.all().order_by('name')  # ⬅️ שורת הקסם
+
+        context = {
+
+            'request_type': request_type,
+
+            'allowed_courses': allowed_courses
+
+        }
+
+        return render(request, f'requests_forms/{request_type}.html', context)
 
 
     context = {
@@ -562,16 +708,18 @@ def submit_special_exam(request):
         student = get_object_or_404(Student, user=request.user)
         title = request.POST.get('title')
         description = request.POST.get('description')
-        course_offering_id = request.POST.get('offering_id')
+        selected_course_name = request.POST.get('course_name')  # שם הקורס שנבחר
         attachment = request.FILES.get('attachment')
 
-        course_offering = get_object_or_404(CourseOffering, id=course_offering_id)
+        # שליפת קורס לפי שם
+        course = get_object_or_404(Course, name=selected_course_name)
+
+        # שליפת המזכירה הראשונה
         secretary = User.objects.filter(role='secretary').first()
 
-        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
-
+        # יצירת הבקשה (בלי מרצה)
         Request.objects.create(
-            title=full_title,
+            title=f"{course.name} | {title}",
             description=description,
             request_type='special_exam',
             student=student,
@@ -587,14 +735,13 @@ def submit_special_exam(request):
 def submit_course_exemption(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        offering_id = request.POST.get('offering_id')
-        course_offering = get_object_or_404(CourseOffering, id=offering_id)
-
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
-        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
 
         Request.objects.create(
@@ -605,7 +752,6 @@ def submit_course_exemption(request):
             assigned_to=secretary,
             attachment=attachment if attachment else None
         )
-
         return redirect('student_request_history')
 
 @login_required
@@ -634,13 +780,14 @@ def submit_increase_credits(request):
 def submit_course_unblock(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        course_name = request.POST.get('course')
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-        full_title = f"{course_name} | {title}"
 
         Request.objects.create(
             title=full_title,
@@ -656,13 +803,14 @@ def submit_course_unblock(request):
 def submit_registration_exemption(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        course_name = request.POST.get('course')
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-        full_title = f"{course_name} | {title}"
 
         Request.objects.create(
             title=full_title,
@@ -673,7 +821,6 @@ def submit_registration_exemption(request):
             attachment=attachment if attachment else None
         )
         return redirect('student_request_history')
-
 
 @login_required
 def submit_cancel_hw_percent(request):
@@ -722,7 +869,7 @@ def submit_delay_submission(request):
         Request.objects.create(
             title=full_title,
             description=description,
-            request_type='delay_assignment',
+            request_type='delay_submission',
             student=student,
             assigned_to=lecturer,  # נשלח למרצה
             attachment=attachment if attachment else None
@@ -871,6 +1018,7 @@ def view_request_details_for_other(request, request_id):
             assignee = get_object_or_404(User, id=assignee_id)
 
             # ✅ תמיד מעדכנים את המטופל החדש, גם אם זו אותה המזכירה
+            req.assigned_by = request.user
             req.assigned_to = assignee
             req.status = 'pending'
             # אם מעבירים למזכירה עצמה => עדכן את סוג הבקשה

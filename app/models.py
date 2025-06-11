@@ -97,6 +97,13 @@ class Request(models.Model):
     request_type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='other')
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     assigned_to = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role__in': ['academic', 'secretary']})
+    assigned_by = models.ForeignKey(  #  Add this here
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requests_forwarded'
+    )
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     explanation = models.TextField(blank=True)

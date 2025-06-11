@@ -134,17 +134,11 @@ class RequestAPITests(TestCase):
         )
 
     def test_secretary_requests_api(self):
-        # Create a test user with the 'secretary' role
         user = User.objects.create_user(username='testuser', password='password', role='secretary')
+
         self.client.login(username='testuser', password='password')
-
-        # Reverse the URL for the secretary request API
         url = reverse('secretary_requests_api')
-
-        # Now make the API request
         response = self.client.get(url)
-
-        # Check that the statusu code is 200 (OK)
         self.assertEqual(response.status_code, 200)
 
     def test_invalid_status_for_academic_requests_api(self):
@@ -213,7 +207,249 @@ class RequestAPITests(TestCase):
         self.assertIn("בקשה למטלה חלופית - חרבות ברזל", html)
         self.assertIn("דחיית הגשת עבודה", html)
         self.assertIn("שחרור חסימת קורס", html)
+     # Test individual filters return expected results
+    def test_filter_by_request_type(self):
+      self.client.login(username='academic1', password='pass123456')
+      response = self.client.get('/api/requests/academic/?status=pending&type=iron_swords')
+      data = response.json()
+      self.assertEqual(len(data), 1)
+      self.assertEqual(data[0]['request_type'], 'iron_swords')
+   # Test combinations of filters:
+    def test_combined_filters(self):
+        self.student.current_year_of_study = 2
+        self.student.current_semester = 'A'
+        self.student.save()
 
+        self.client.login(username='academic1', password='pass123456')
+        url = '/api/requests/academic/?status=pending&type=iron_swords&year=2&semester=A'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for r in data:
+            self.assertEqual(r['request_type'], 'iron_swords')
+            self.assertEqual(r['education_year'], 2)
+            self.assertEqual(r['semester'], 'A')
+
+     # Test invalid values:
+    def test_invalid_filter_values(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending&type=nonexistent')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+    #Test that dropdown options render correctly (indirect, via API):
+    def test_course_dropdown_options_api(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/academic/courses/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.json(), list)
+     #No matching results → “No requests HERE”:
+    def test_no_matching_filters_returns_empty(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending&type=delay_submission')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+     # No filters selected (return all assigned with status):
+    def test_no_filters_returns_all_requests_for_status(self):
+        self.client.login(username='academic1', password='pass123456')
+        response = self.client.get('/api/requests/academic/?status=pending')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 2)
+
+class AcademicFilteringIntegrationTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.client = Client()
+
+        # Academic setup
+        self.academic_user = User.objects.create_user(
+            username='academic_user',
+            password='securepass',
+            role='academic',
+            id_number='999000111',
+            phone='0509990001',
+            email='academic@uni.com'
+        )
+        self.academic, _ = AcademicStaff.objects.get_or_create(user=self.academic_user)
+
+
+        # Student setup
+        self.student_user = User.objects.create_user(
+            username='student_user',
+            password='securepass',
+            role='student',
+            id_number='888000111',
+            phone='0508880001',
+            email='student@uni.com'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=3,
+            current_year_of_study=3,
+            current_semester='B'
+        )
+
+        self.course = Course.objects.create(name='מערכות הפעלה', semester='B', year_of_study=3)
+        self.offering = CourseOffering.objects.create(
+            course=self.course,
+            instructor=self.academic,
+            year="2024-2025",
+            semester='B'
+        )
+
+        # Add one request to test filters
+        Request.objects.create(
+            title='מערכות הפעלה - academic_user | דחיית הגשה',
+            description='Filter integration test',
+            request_type='delay_submission',
+            status='in_progress',
+            student=self.student,
+            assigned_to=self.academic_user
+        )
+
+    def test_combined_valid_filters(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'type': 'delay_submission',
+            'year': '3',
+            'semester': 'B',
+            'course': 'מערכות הפעלה'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_course_filter_case_insensitive(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'course': 'מערכות הפעלה'.lower()
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_no_filters_returns_all_status_filtered(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {'status': 'in_progress'})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.json()), 1)
+
+    def test_invalid_filter_value_returns_empty(self):
+        self.client.login(username='academic_user', password='securepass')
+        url = reverse('academic_requests_api')
+        response = self.client.get(url, {
+            'status': 'in_progress',
+            'type': 'non_existing_type'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_dropdown_data_format_course_names(self):
+        self.client.login(username='academic_user', password='securepass')
+        response = self.client.get(reverse('academic_courses_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('מערכות הפעלה', response.json())
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.utils import timezone
+from app.models import User, Student, Secretary, Course, Request
+
+class SecretaryFilteringIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.User = User
+
+        # Create Secretary
+        self.secretary_user = User.objects.create_user(
+            username='secretary_filter_user',
+            password='securepass',
+            role='secretary',
+            id_number='777000999',
+            phone='0507770009',
+            email='secretary_filter@uni.com',
+            department='CS'
+        )
+        Secretary.objects.get_or_create(user=self.secretary_user)
+
+        # Create Student
+        self.student_user = User.objects.create_user(
+            username='student_filter_user',
+            password='securepass',
+            role='student',
+            id_number='888000999',
+            phone='0508880009',
+            email='student_filter@uni.com',
+            department='CS'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=2,
+            current_year_of_study=2,
+            current_semester='A'
+        )
+
+        # Just create course for dropdown test
+        self.course = Course.objects.create(name='מערכות מידע', semester='A', year_of_study=2)
+
+        # Create a request without course field (which doesn't exist in model)
+        Request.objects.create(
+            title='שחרור חסימה - בדיקה',
+            description='בדיקת מסננים למזכירה',
+            request_type='course_unblock',
+            status='accepted',
+            student=self.student,
+            assigned_to=self.secretary_user,
+            assigned_by=self.secretary_user,
+            submitted_at=timezone.now()
+        )
+
+    def test_combined_valid_filters(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'accepted',
+            'request_type': 'course_unblock',
+            'year_of_study': '2',
+            'semester': 'A'
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['request_type'], 'course_unblock')
+
+    def test_no_filters_returns_all_requests_for_status(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {'status': 'accepted'})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.json()), 1)
+
+    def test_invalid_filter_returns_empty(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        # Valid type, but none match status = 'rejected'
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'rejected',
+            'request_type': 'course_unblock'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_no_matching_filters_returns_empty(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_requests_api'), {
+            'status': 'pending',
+            'request_type': 'delay_submission'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_course_dropdown_options_api(self):
+        self.client.login(username='secretary_filter_user', password='securepass')
+        response = self.client.get(reverse('secretary_courses_api'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('מערכות מידע', response.json())
 
 class LogoutTests(TestCase):
     def setUp(self):
@@ -556,7 +792,7 @@ class SubmitCourseExemptionTests(TestCase):
         file = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
 
         response = self.client.post(reverse('submit_course_exemption'), {
-            'offering_id': self.course_offering.id,
+            'course_id': self.course_offering.course.id,  # 🔁 שינוי כאן
             'title': 'Exemption Request',
             'description': 'I already passed this course elsewhere.',
             'attachment': file
@@ -639,6 +875,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from app.models import Student, Request, User
 
+from django.test import TestCase, Client
+from django.urls import reverse
+from app.models import User, Student, Course, Request
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
 class SubmitPrerequisiteExemptionTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -666,6 +908,9 @@ class SubmitPrerequisiteExemptionTest(TestCase):
             }
         )
 
+        # ✅ צור קורס עם שם תואם
+        self.course = Course.objects.create(name='Introduction to Algorithms')
+
     def test_submit_prerequisite_exemption(self):
         self.client.login(username='student1', password='testpass123')
 
@@ -673,7 +918,7 @@ class SubmitPrerequisiteExemptionTest(TestCase):
         response = self.client.post(reverse('submit_prerequisite_exemption'), {
             'title': 'Request to Skip Prerequisite',
             'description': 'I already studied this material in another course.',
-            'course': 'Introduction to Algorithms',
+            'course_id': self.course.id,
             'attachment': file
         })
 
@@ -748,7 +993,6 @@ from app.models import (
     Course, CourseOffering, StudentCourseEnrollment
 )
 User = get_user_model()
-
 class LoadRequestFormViewTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -808,10 +1052,8 @@ class LoadRequestFormViewTests(TestCase):
         response = self.client.get(reverse('load_request_form'), {'type': 'special_exam'})
 
         self.assertEqual(response.status_code, 200)
-        allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering1.id, allowed_ids)
-        self.assertIn(self.offering2.id, allowed_ids)
-        self.assertIn(self.offering3.id, allowed_ids)
+        course_names = response.context['course_names']
+        self.assertIn("מתמטיקה בדידה", course_names)
 
     def test_load_form_for_delay_submission(self):
         self.client.login(username='student1', password='pass123')
@@ -819,7 +1061,7 @@ class LoadRequestFormViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering2.id, allowed_ids)
+        self.assertNotIn(self.offering2.id, allowed_ids)
         self.assertIn(self.offering3.id, allowed_ids)
         self.assertNotIn(self.offering1.id, allowed_ids)
         self.assertNotIn(self.offering4.id, allowed_ids)
@@ -829,11 +1071,9 @@ class LoadRequestFormViewTests(TestCase):
         response = self.client.get(reverse('load_request_form'), {'type': 'prerequisite_exemption'})
 
         self.assertEqual(response.status_code, 200)
-        allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering1.id, allowed_ids)
-        self.assertIn(self.offering2.id, allowed_ids)
-        self.assertIn(self.offering3.id, allowed_ids)
-        self.assertIn(self.offering4.id, allowed_ids)
+        allowed_courses = response.context['allowed_courses']
+        course_ids = [c.id for c in allowed_courses]
+        self.assertIn(self.course.id, course_ids)
 
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -881,7 +1121,7 @@ class SubmitStudentRequestsTests(TestCase):
 
         # קורס והצעה
         self.course = Course.objects.create(name='מבוא למדעי המחשב')
-        self.offering = CourseOffering.objects.create(
+        self.course_offering = CourseOffering.objects.create(
             course=self.course,
             instructor=self.academic,
             year=1,
@@ -897,11 +1137,12 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_special_exam_request(self):
         self.login_student()
         response = self.client.post(reverse('submit_special_exam'), {
-            'offering_id': self.offering.id,
-            'title': 'מועד נוסף',
-            'description': 'לא ניגשתי למועד א\'',
+            'course_name': self.course.name,
+            'title': 'Exemption Request',
+            'description': 'I already passed this course elsewhere.',
             'attachment': self.upload_file()
         })
+
         self.assertEqual(Request.objects.count(), 1)
         req = Request.objects.first()
         self.assertEqual(req.request_type, 'special_exam')
@@ -912,18 +1153,19 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_course_exemption(self):
         self.login_student()
         response = self.client.post(reverse('submit_course_exemption'), {
-            'title': 'פטור מתכנות',
-            'description': 'למדתי את הקורס במקום אחר',
-            'offering_id': self.offering.id,
+            'course_id': self.course.id,
+            'title': 'Exemption Request',
+            'description': 'I already passed this course elsewhere.',
             'attachment': self.upload_file()
         })
+
         self.assertEqual(Request.objects.count(), 1)
         self.assertEqual(Request.objects.first().request_type, 'course_exemption')
 
     def test_submit_increase_credits(self):
         self.login_student()
         response = self.client.post(reverse('submit_increase_credits'), {
-            'title': 'תוספת נק"ז',
+            'title': 'תוספת נק\"ז',
             'description': 'מבקש להוסיף קורס נוסף',
             'attachment': self.upload_file()
         })
@@ -933,7 +1175,7 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_course_unblock(self):
         self.login_student()
         response = self.client.post(reverse('submit_course_unblock'), {
-            'course': 'מערכות הפעלה',
+            'course_id': self.course.id,
             'title': 'שחרור קורס',
             'description': 'נחסמתי בגלל תנאי קדם',
             'attachment': self.upload_file()
@@ -944,7 +1186,7 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_registration_exemption(self):
         self.login_student()
         response = self.client.post(reverse('submit_registration_exemption'), {
-            'course': 'בסיסי נתונים',
+            'course_id': self.course.id,
             'title': 'פטור מהרשמה',
             'description': 'לא הצלחתי להירשם בזמן',
             'attachment': self.upload_file()
@@ -1028,7 +1270,7 @@ class SubmitInstructorRequestIntegrationTests(TestCase):
         self.post_request('submit_cancel_hw_percent', 'cancel_hw_percent')
 
     def test_submit_delay_submission(self):
-        self.post_request('submit_delay_submission', 'delay_assignment')
+        self.post_request('submit_delay_submission', 'delay_submission')
 
     def test_submit_include_hw_grade(self):
         self.post_request('submit_include_hw_grade', 'include_hw_grade')
@@ -1523,3 +1765,141 @@ class SecretaryRequestDetailViewTests(TestCase):
         url = reverse('request_detail_view_secretary', args=[9999])  # לא קיים
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
+class StudentRequestFilterTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        # Create student and user
+        self.student_user = User.objects.create_user(
+            username='student_filter_test',
+            password='securepass',
+            role='student',
+            id_number='999000111',
+            phone='0509990001',
+            email='student_filter@test.com'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            degree_type='bachelor',
+            year_of_study=2,
+            current_year_of_study=2,
+            current_semester='A'
+        )
+
+        # Login student for authenticated requests
+        self.client.login(username='student_filter_test', password='securepass')
+
+        # Create dummy academic user to assign requests to
+        self.assigned_user = User.objects.create_user(
+            username='assigned_academic',
+            password='pass123',
+            role='academic',
+            id_number='777000999',
+            phone='0507770009',
+            email='academic@uni.com'
+        )
+
+        now = timezone.now()
+
+        # Create requests with different statuses
+        self.pending_request = Request.objects.create(
+            title='Pending Request',
+            description='Pending test',
+            request_type='delay_submission',
+            status='pending',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.in_progress_request = Request.objects.create(
+            title='In Progress Request',
+            description='In progress test',
+            request_type='delay_submission',
+            status='in_progress',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.accepted_request = Request.objects.create(
+            title='Accepted Request',
+            description='Accepted test',
+            request_type='delay_submission',
+            status='accepted',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+        self.rejected_request = Request.objects.create(
+            title='Rejected Request',
+            description='Rejected test',
+            request_type='delay_submission',
+            status='rejected',
+            student=self.student,
+            assigned_to=self.assigned_user,
+            submitted_at=now
+        )
+
+    def test_filter_by_each_status(self):
+        statuses = {
+            'pending': self.pending_request,
+            'in_progress': self.in_progress_request,
+            'accepted': self.accepted_request,
+            'rejected': self.rejected_request,
+        }
+        for status, req in statuses.items():
+            response = self.client.get(
+                reverse('student_request_history'),
+                {'status': status},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, req.title)
+
+    def test_cannot_see_other_student_requests(self):
+        other_user = User.objects.create_user(
+            username='other_student',
+            password='pass123',
+            role='student',
+            id_number='987654321',
+            email='other@test.com',
+            phone='0501111111'
+        )
+        other_student = Student.objects.create(user=other_user, year_of_study=2, degree_type='bachelor')
+        Request.objects.create(
+            title='Hidden Request',
+            status='pending',
+            student=other_student,
+            assigned_to=self.assigned_user,
+            submitted_at=timezone.now()
+        )
+
+        response = self.client.get(
+            reverse('student_request_history'),
+            {'status': 'pending'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Hidden Request')
+
+    def test_empty_state_when_no_matching_requests(self):
+        # Delete all requests
+        Request.objects.filter(student=self.student).delete()
+
+        response = self.client.get(
+            reverse('student_request_history'),
+            {'status': 'pending'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'requests': []})
+
+    def test_ui_behavior_no_filter(self):
+        response = self.client.get(reverse('student_request_history'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.pending_request.title)
+        self.assertContains(response, self.in_progress_request.title)
+        self.assertContains(response, self.accepted_request.title)
+        self.assertContains(response, self.rejected_request.title)
