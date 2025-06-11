@@ -330,12 +330,11 @@
     }
 
     let pendingAcademicRegistration = null;
+function showAcademicDetailsForm(email) {
+    const username = email.split('@')[0];
+    const container = document.getElementById("formContainer");
 
-    function showAcademicDetailsForm(email) {
-        const username = email.split('@')[0];
-        const container = document.getElementById("formContainer");
-
-     container.innerHTML = `
+    container.innerHTML = `
         <h2>Academic Staff Registration</h2>
         <form id="academicDetailsForm">
             <label for="first_name">First Name</label>
@@ -356,6 +355,13 @@
 
             <label for="password">Password</label>
             <input type="password" id="password" required>
+            <ul id="academicPasswordRules" style="text-align: left; font-size: 13px; padding-left: 20px;">
+                <li id="academicRuleLength">❌ At least 8 characters</li>
+                <li id="academicRuleUpper">❌ At least one uppercase letter</li>
+                <li id="academicRuleLower">❌ At least one lowercase letter</li>
+                <li id="academicRuleNumber">❌ At least one number</li>
+                <li id="academicRuleEnglishOnly">❌ English letters and numbers only</li>
+            </ul>
             <span id="password_error" class="error-span"></span>
 
             <label for="confirm_password">Confirm Password</label>
@@ -370,8 +376,31 @@
         </form>
         <style>.error-span {color: red; font-size: 12px;}</style>
     `;
+
     const form = document.getElementById("academicDetailsForm");
     const nextBtn = document.getElementById("nextAcademicBtn");
+
+    // ✅ תצוגת תנאים בלייב:
+    form.password.addEventListener("input", updateAcademicPasswordRules);
+
+    function updateAcademicPasswordRules() {
+        const password = form.password.value;
+
+        document.getElementById("academicRuleLength").innerText =
+            password.length >= 8 ? "✅ At least 8 characters" : "❌ At least 8 characters";
+
+        document.getElementById("academicRuleUpper").innerText =
+            /[A-Z]/.test(password) ? "✅ At least one uppercase letter" : "❌ At least one uppercase letter";
+
+        document.getElementById("academicRuleLower").innerText =
+            /[a-z]/.test(password) ? "✅ At least one lowercase letter" : "❌ At least one lowercase letter";
+
+        document.getElementById("academicRuleNumber").innerText =
+            /\d/.test(password) ? "✅ At least one number" : "❌ At least one number";
+
+        document.getElementById("academicRuleEnglishOnly").innerText =
+            /^[A-Za-z\d]*$/.test(password) ? "✅ English letters and numbers only" : "❌ English letters and numbers only";
+    }
 
     form.addEventListener("input", validateAcademicFormLive);
 
@@ -385,7 +414,6 @@
         const password = form.password.value;
         const confirmPassword = form.confirm_password.value;
 
-        // ניקוי שגיאות
         form.querySelectorAll(".error-span").forEach(span => span.innerText = "");
 
         if (!firstName) {
@@ -398,7 +426,6 @@
             valid = false;
         }
 
-        // ת"ז
         if (!/^\d{9}$/.test(idNumber)) {
             setAcademicError("id_number_error", "ID must be exactly 9 digits.");
             valid = false;
@@ -410,7 +437,6 @@
             }
         }
 
-        // טלפון
         if (!/^\d{10}$/.test(phone)) {
             setAcademicError("phone_error", "Phone number must be exactly 10 digits.");
             valid = false;
@@ -422,7 +448,6 @@
             }
         }
 
-        // סיסמה
         const lengthValid = password.length >= 8;
         const upperValid = /[A-Z]/.test(password);
         const lowerValid = /[a-z]/.test(password);
@@ -441,6 +466,8 @@
 
         nextBtn.disabled = !valid;
     }
+}
+
 
     function setAcademicError(id, msg) {
         document.getElementById(id).innerText = msg;
@@ -463,7 +490,7 @@
         }
     }
 
-    }
+
     function submitAcademicDetails() {
         const form = document.getElementById("academicDetailsForm");
         const error = document.getElementById("academicFormError");
@@ -629,26 +656,62 @@ function generateCourseFields() {
         });
 }
 function generateSubTeachings(courseIndex) {
-    const count = parseInt(document.getElementById(`course_times_${courseIndex}`).value);
-    const container = document.getElementById(`teachings_container_${courseIndex}`);
-    container.innerHTML = "";
+const count = parseInt(document.getElementById(`course_times_${courseIndex}`).value);
+const container = document.getElementById(`teachings_container_${courseIndex}`);
+container.innerHTML = "";
 
-    for (let j = 1; j <= count; j++) {
-        container.innerHTML += `
-            <div style="margin-top:10px;">
-                <strong>Instance ${j}</strong><br>
-                <label>Teaching Year</label>
-                <input type="text" id="teaching_year_${courseIndex}_${j}" placeholder="e.g., 2022-2023" required>
+for (let j = 1; j <= count; j++) {
+    const inputId = `teaching_year_${courseIndex}_${j}`;
+    const errorId = `${inputId}_error`;
 
-                <label>Semester</label>
-                <select id="teaching_semester_${courseIndex}_${j}" required>
-                    <option value="">Select</option>
-                    <option value="A">Semester A</option>
-                    <option value="B">Semester B</option>
-                </select>
-            </div>
-        `;
-    }
+    container.innerHTML += `
+        <div style="margin-top:10px;">
+            <strong>Instance ${j}</strong><br>
+            <label>Teaching Year</label>
+            <input type="text" id="${inputId}" placeholder="e.g., 2022-2023" required>
+            <span id="${errorId}" style="color:red; font-size:12px; display:none;"></span>
+
+            <label>Semester</label>
+            <select id="teaching_semester_${courseIndex}_${j}" required>
+                <option value="">Select</option>
+                <option value="A">Semester A</option>
+                <option value="B">Semester B</option>
+            </select>
+        </div>
+    `;
+
+    // בדיקה חיה אחרי יצירת האלמנטים
+    setTimeout(() => {
+        const input = document.getElementById(inputId);
+        const errorSpan = document.getElementById(errorId);
+
+        input.addEventListener("input", () => {
+            const val = input.value.trim();
+            const match = val.match(/^(\d{4})-(\d{4})$/);
+            const minYear = 2015;
+            const maxYear = 2025;
+
+            if (!match) {
+                errorSpan.innerText = "❌ Format must be: YYYY-YYYY";
+                errorSpan.style.display = "block";
+            } else {
+                const y1 = parseInt(match[1]);
+                const y2 = parseInt(match[2]);
+
+                if (y1 < minYear || y2 > maxYear) {
+                    errorSpan.innerText = `❌ Years must be in range ${minYear}-${maxYear}`;
+                    errorSpan.style.display = "block";
+                } else if (y2 !== y1 + 1) {
+                    errorSpan.innerText = "❌ Second year must be exactly one year after the first";
+                    errorSpan.style.display = "block";
+                } else {
+                    errorSpan.style.display = "none";  // הכל תקין ✅
+                }
+            }
+        });
+    }, 0);
+}
+
 }
 
 
