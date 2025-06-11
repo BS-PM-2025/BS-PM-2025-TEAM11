@@ -25,13 +25,19 @@ pipeline {
         }
 
 
-        stage('Run Unit + Integration Tests') {
-            steps {
-                echo '🧪 Running Django tests with coverage...'
-                sh 'python3 -m pytest app/tests.py --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+        stage('Run Unit + Integration Tests with Timing') {
+          steps {
+            echo '🧪 Running Django tests with timing...'
+            script {
+            def startTime = System.currentTimeMillis()
+            sh 'python3 -m pytest app/tests.py --ds=RequestFlow.settings --junitxml=test-results.xml || true'
+            def endTime = System.currentTimeMillis()
+            def duration = (endTime - startTime) / 1000
+            echo "⏱️ Test Execution Time: ${duration} seconds"
+        }
+    }
+}
 
-
-            }
         }
 
         stage('Calculate Defect Density') {
