@@ -78,14 +78,12 @@
 
 
 <label for="offering_id">בחר קורס</label>
-<select name="offering_id" id="offering_id" required>
-    <option value="" disabled selected>בחר קורס...</option>
-    {% for offering in allowed_offerings %}
-        <option value="{{ offering.id }}">
-            {{ offering.course.name }} - {{ offering.instructor.user.get_full_name }}
-        </option>
-    {% endfor %}
-</select>
+        <select name="course_name" id="course_name" required>
+            <option value="" disabled selected>בחר קורס...</option>
+            {% for name in course_names %}
+                <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+        </select>
 
         <label for="title">נושא *</label>
         <input type="text" name="title" id="title" required>

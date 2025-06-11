@@ -177,6 +177,12 @@ def secretary_requests_api(request):
         status=status
     )
 
+    # ❗ סינון שלא יכלול בקשות מסוג "אחר" שעדיין לא הועברו למרצה
+    all_requests = all_requests.exclude(
+        request_type='other',
+        assigned_by__isnull=True  # כלומר עדיין אצל המזכירה המקורית
+    )
+
     filtered = []
     for r in all_requests:
         student = r.student
@@ -568,24 +574,23 @@ def submit_prerequisite_exemption(request):
         student = get_object_or_404(Student, user=request.user)
         title = request.POST.get('title')
         description = request.POST.get('description')
-        course = request.POST.get('course')  # אפשר לשמור אותו בתוך ה-title או description אם אין שדה נפרד
-        request_type = 'prerequisite_exemption'
+        course_id = request.POST.get('course_id')
         attachment = request.FILES.get('attachment')
 
+        course = get_object_or_404(Course, id=course_id)
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-
-        full_title = f"({course}) {title}"
 
         Request.objects.create(
             title=full_title,
             description=description,
-            request_type=request_type,
+            request_type='prerequisite_exemption',
             student=student,
             assigned_to=secretary,
             attachment=attachment if attachment else None
         )
-
         return redirect('student_request_history')
+
 
 
 @login_required
@@ -614,19 +619,18 @@ from datetime import date
 @login_required
 def load_request_form(request):
     request_type = request.GET.get('type')
-    allowed_offerings = []
-
     student = Student.objects.get(user=request.user)
+
     today = date.today()
     year = today.year
     month = today.month
 
-    if month >= 10:  # אוקטובר, נובמבר, דצמבר – תחילת שנה אקדמית
+    if month >= 10:
         current_year = f"{year}-{year + 1}"
-    else:  # ינואר עד ספטמבר – עדיין בתוך השנה שהתחילה באוקטובר של השנה הקודמת
+    else:
         current_year = f"{year - 1}-{year}"
-    current_sem = student.current_semester or 'A'
 
+    current_sem = student.current_semester or 'A'
     all_enrollments = StudentCourseEnrollment.objects.filter(student=student)
     all_offerings = CourseOffering.objects.filter(
         course__in=[e.course for e in all_enrollments],
@@ -634,41 +638,58 @@ def load_request_form(request):
         semester__in=[e.semester for e in all_enrollments]
     )
 
-    if request_type == 'special_exam':
-        # הצג את כל הקורסים של שנים קודמות + הסמסטרים שכבר עברו בשנה הנוכחית
-        for o in all_offerings:
-            if o.year < current_year:
-                allowed_offerings.append(o)
-            elif o.year == current_year:
-                if current_sem == 'A' and o.semester == 'A':
-                    allowed_offerings.append(o)
-                elif current_sem == 'B':
-                    allowed_offerings.append(o)  # גם A וגם B
+    allowed_offerings = []
 
-    elif request_type == 'delay_submission':
-        # רק קורסים של השנה הנוכחית, כל הסמסטרים
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
+    if request_type == 'special_exam':
+        # כל ההרשמות של הסטודנט בשנים קודמות + השנה הנוכחית (עד הסמסטר הנוכחי)
+        relevant_enrollments = []
+        for enrollment in all_enrollments:
+            if enrollment.academic_year < current_year:
+                relevant_enrollments.append(enrollment)
+            elif enrollment.academic_year == current_year:
+                if current_sem == 'A' and enrollment.semester == 'A':
+                    relevant_enrollments.append(enrollment)
+                elif current_sem == 'B':
+                    relevant_enrollments.append(enrollment)
+
+        # קבלת שמות הקורסים הייחודיים מתוך ההרשמות
+        course_names = sorted(set(e.course.name for e in relevant_enrollments))
+
+        context = {
+            'request_type': request_type,
+            'course_names': course_names
+        }
+        return render(request, f'requests_forms/{request_type}.html', context)
+
+
+    elif request_type in ['delay_submission', 'cancel_hw_percent', 'include_hw_grade', 'iron_swords']:
+
+        for enrollment in all_enrollments:
+            if (
+                enrollment.academic_year == current_year and
+                enrollment.semester == current_sem
+            ):
+                matching_offerings = CourseOffering.objects.filter(
+                    course=enrollment.course,
+                    year=current_year,
+                    semester=current_sem
+                )
+                allowed_offerings.extend(matching_offerings)
+
 
     elif request_type in ['prerequisite_exemption', 'course_exemption', 'course_unblock', 'registration_exemption']:
-        allowed_offerings = list(CourseOffering.objects.all())
 
-    elif request_type == 'cancel_hw_percent':
-        # רק קורסים של השנה הנוכחית, כל הסמסטרים
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
-    elif request_type == 'include_hw_grade':
-        all_offerings = CourseOffering.objects.all()
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
-    elif request_type == 'iron_swords':
-        all_offerings = CourseOffering.objects.all()
-        for o in all_offerings:
-            if o.year == current_year:
-                allowed_offerings.append(o)
+        allowed_courses = Course.objects.all().order_by('name')  # ⬅️ שורת הקסם
+
+        context = {
+
+            'request_type': request_type,
+
+            'allowed_courses': allowed_courses
+
+        }
+
+        return render(request, f'requests_forms/{request_type}.html', context)
 
 
     context = {
@@ -687,16 +708,18 @@ def submit_special_exam(request):
         student = get_object_or_404(Student, user=request.user)
         title = request.POST.get('title')
         description = request.POST.get('description')
-        course_offering_id = request.POST.get('offering_id')
+        selected_course_name = request.POST.get('course_name')  # שם הקורס שנבחר
         attachment = request.FILES.get('attachment')
 
-        course_offering = get_object_or_404(CourseOffering, id=course_offering_id)
+        # שליפת קורס לפי שם
+        course = get_object_or_404(Course, name=selected_course_name)
+
+        # שליפת המזכירה הראשונה
         secretary = User.objects.filter(role='secretary').first()
 
-        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
-
+        # יצירת הבקשה (בלי מרצה)
         Request.objects.create(
-            title=full_title,
+            title=f"{course.name} | {title}",
             description=description,
             request_type='special_exam',
             student=student,
@@ -712,14 +735,13 @@ def submit_special_exam(request):
 def submit_course_exemption(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        offering_id = request.POST.get('offering_id')
-        course_offering = get_object_or_404(CourseOffering, id=offering_id)
-
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
-        full_title = f"{course_offering.course.name} - {course_offering.instructor.user.get_full_name()} | {title}"
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
 
         Request.objects.create(
@@ -730,7 +752,6 @@ def submit_course_exemption(request):
             assigned_to=secretary,
             attachment=attachment if attachment else None
         )
-
         return redirect('student_request_history')
 
 @login_required
@@ -759,13 +780,14 @@ def submit_increase_credits(request):
 def submit_course_unblock(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        course_name = request.POST.get('course')
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-        full_title = f"{course_name} | {title}"
 
         Request.objects.create(
             title=full_title,
@@ -781,13 +803,14 @@ def submit_course_unblock(request):
 def submit_registration_exemption(request):
     if request.method == 'POST':
         student = get_object_or_404(Student, user=request.user)
-        course_name = request.POST.get('course')
+        course_id = request.POST.get('course_id')
+        course = get_object_or_404(Course, id=course_id)
         title = request.POST.get('title')
         description = request.POST.get('description')
         attachment = request.FILES.get('attachment')
 
+        full_title = f"{course.name} | {title}"
         secretary = User.objects.filter(role='secretary').first()
-        full_title = f"{course_name} | {title}"
 
         Request.objects.create(
             title=full_title,
@@ -798,7 +821,6 @@ def submit_registration_exemption(request):
             attachment=attachment if attachment else None
         )
         return redirect('student_request_history')
-
 
 @login_required
 def submit_cancel_hw_percent(request):

@@ -792,7 +792,7 @@ class SubmitCourseExemptionTests(TestCase):
         file = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
 
         response = self.client.post(reverse('submit_course_exemption'), {
-            'offering_id': self.course_offering.id,
+            'course_id': self.course_offering.course.id,  # 🔁 שינוי כאן
             'title': 'Exemption Request',
             'description': 'I already passed this course elsewhere.',
             'attachment': file
@@ -875,6 +875,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from app.models import Student, Request, User
 
+from django.test import TestCase, Client
+from django.urls import reverse
+from app.models import User, Student, Course, Request
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
 class SubmitPrerequisiteExemptionTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -902,6 +908,9 @@ class SubmitPrerequisiteExemptionTest(TestCase):
             }
         )
 
+        # ✅ צור קורס עם שם תואם
+        self.course = Course.objects.create(name='Introduction to Algorithms')
+
     def test_submit_prerequisite_exemption(self):
         self.client.login(username='student1', password='testpass123')
 
@@ -909,7 +918,7 @@ class SubmitPrerequisiteExemptionTest(TestCase):
         response = self.client.post(reverse('submit_prerequisite_exemption'), {
             'title': 'Request to Skip Prerequisite',
             'description': 'I already studied this material in another course.',
-            'course': 'Introduction to Algorithms',
+            'course_id': self.course.id,
             'attachment': file
         })
 
@@ -984,7 +993,6 @@ from app.models import (
     Course, CourseOffering, StudentCourseEnrollment
 )
 User = get_user_model()
-
 class LoadRequestFormViewTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -1044,10 +1052,8 @@ class LoadRequestFormViewTests(TestCase):
         response = self.client.get(reverse('load_request_form'), {'type': 'special_exam'})
 
         self.assertEqual(response.status_code, 200)
-        allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering1.id, allowed_ids)
-        self.assertIn(self.offering2.id, allowed_ids)
-        self.assertIn(self.offering3.id, allowed_ids)
+        course_names = response.context['course_names']
+        self.assertIn("מתמטיקה בדידה", course_names)
 
     def test_load_form_for_delay_submission(self):
         self.client.login(username='student1', password='pass123')
@@ -1055,7 +1061,7 @@ class LoadRequestFormViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering2.id, allowed_ids)
+        self.assertNotIn(self.offering2.id, allowed_ids)
         self.assertIn(self.offering3.id, allowed_ids)
         self.assertNotIn(self.offering1.id, allowed_ids)
         self.assertNotIn(self.offering4.id, allowed_ids)
@@ -1065,11 +1071,9 @@ class LoadRequestFormViewTests(TestCase):
         response = self.client.get(reverse('load_request_form'), {'type': 'prerequisite_exemption'})
 
         self.assertEqual(response.status_code, 200)
-        allowed_ids = [o.id for o in response.context['allowed_offerings']]
-        self.assertIn(self.offering1.id, allowed_ids)
-        self.assertIn(self.offering2.id, allowed_ids)
-        self.assertIn(self.offering3.id, allowed_ids)
-        self.assertIn(self.offering4.id, allowed_ids)
+        allowed_courses = response.context['allowed_courses']
+        course_ids = [c.id for c in allowed_courses]
+        self.assertIn(self.course.id, course_ids)
 
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -1117,7 +1121,7 @@ class SubmitStudentRequestsTests(TestCase):
 
         # קורס והצעה
         self.course = Course.objects.create(name='מבוא למדעי המחשב')
-        self.offering = CourseOffering.objects.create(
+        self.course_offering = CourseOffering.objects.create(
             course=self.course,
             instructor=self.academic,
             year=1,
@@ -1133,11 +1137,12 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_special_exam_request(self):
         self.login_student()
         response = self.client.post(reverse('submit_special_exam'), {
-            'offering_id': self.offering.id,
-            'title': 'מועד נוסף',
-            'description': 'לא ניגשתי למועד א\'',
+            'course_name': self.course.name,
+            'title': 'Exemption Request',
+            'description': 'I already passed this course elsewhere.',
             'attachment': self.upload_file()
         })
+
         self.assertEqual(Request.objects.count(), 1)
         req = Request.objects.first()
         self.assertEqual(req.request_type, 'special_exam')
@@ -1148,18 +1153,19 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_course_exemption(self):
         self.login_student()
         response = self.client.post(reverse('submit_course_exemption'), {
-            'title': 'פטור מתכנות',
-            'description': 'למדתי את הקורס במקום אחר',
-            'offering_id': self.offering.id,
+            'course_id': self.course.id,
+            'title': 'Exemption Request',
+            'description': 'I already passed this course elsewhere.',
             'attachment': self.upload_file()
         })
+
         self.assertEqual(Request.objects.count(), 1)
         self.assertEqual(Request.objects.first().request_type, 'course_exemption')
 
     def test_submit_increase_credits(self):
         self.login_student()
         response = self.client.post(reverse('submit_increase_credits'), {
-            'title': 'תוספת נק"ז',
+            'title': 'תוספת נק\"ז',
             'description': 'מבקש להוסיף קורס נוסף',
             'attachment': self.upload_file()
         })
@@ -1169,7 +1175,7 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_course_unblock(self):
         self.login_student()
         response = self.client.post(reverse('submit_course_unblock'), {
-            'course': 'מערכות הפעלה',
+            'course_id': self.course.id,
             'title': 'שחרור קורס',
             'description': 'נחסמתי בגלל תנאי קדם',
             'attachment': self.upload_file()
@@ -1180,7 +1186,7 @@ class SubmitStudentRequestsTests(TestCase):
     def test_submit_registration_exemption(self):
         self.login_student()
         response = self.client.post(reverse('submit_registration_exemption'), {
-            'course': 'בסיסי נתונים',
+            'course_id': self.course.id,
             'title': 'פטור מהרשמה',
             'description': 'לא הצלחתי להירשם בזמן',
             'attachment': self.upload_file()

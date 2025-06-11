@@ -67,16 +67,13 @@
         <h3>בקשה לפטור מקורס</h3>
 
         <input type="hidden" name="request_type" value="course_exemption">
-
-        <label for="offering_id">בחר קורס *</label>
-        <select name="offering_id" id="offering_id" required>
-            <option value="" disabled selected>בחר קורס...</option>
-            {% for offering in allowed_offerings %}
-                <option value="{{ offering.id }}">
-                    {{ offering.course.name }} - {{ offering.instructor.user.get_full_name }}
-                </option>
-            {% endfor %}
-        </select>
+<label for="course_id">בחר קורס</label>
+<select name="course_id" required>
+    <option value="" disabled selected>בחר קורס...</option>
+    {% for course in allowed_courses %}
+        <option value="{{ course.id }}">{{ course.name }}</option>
+    {% endfor %}
+</select>
 
         <label for="title">נושא *</label>
         <input type="text" name="title" id="title" required>
