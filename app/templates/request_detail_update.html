@@ -181,6 +181,21 @@
   background-color: #eee;
   color: #333;
 }
+a.back-button {
+  display: inline-block;
+  background-color: #59848d;
+  color: white;
+  text-decoration: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 12px;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+}
+a.back-button:hover {
+  background-color: #3a6e75;
+  transform: scale(1.05);
+}
 
 
 
@@ -247,6 +262,15 @@
   </div>
 </form>
 
+<div style="text-align: center; margin-top: 30px;">
+  {% if request.user.role == 'secretary' %}
+    <a href="{% url 'secretary_dashboard' %}" class="back-button"> חזרה ללוח הבקשות</a>
+  {% elif request.user.role == 'academic' %}
+  <a href="{% url 'academic_dashboard' %}" class="back-button"> חזרה ללוח הבקשות</a>
+  {% else %}
+    <a href="/" class="back-button">🔙 חזרה לדף הבית</a>
+  {% endif %}
+</div>
 
 </main>
 

@@ -116,6 +116,23 @@
   background-color: #eee;
   color: #333;
 }
+a.back-button {
+  display: inline-block;
+  background-color: #59848d;
+  color: white;
+  text-decoration: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 12px;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+a.back-button:hover {
+  background-color: #3a6e75;
+  transform: scale(1.05);
+}
+
   </style>
 </head>
 <body>
@@ -175,6 +192,9 @@
 
   <button type="submit">העבר</button>
 </form>
+<div style="text-align: center; margin-top: 30px;">
+  <a href="{% url 'secretary_dashboard' %}" class="back-button"> חזרה ללוח הבקשות</a>
+</div>
 
   </div>
 
