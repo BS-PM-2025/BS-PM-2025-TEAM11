@@ -69,7 +69,7 @@ pipeline {
             echo '🔍 Running flake8...'
               sh '''
                   pip install flake8 || true
-                  export PATH=$PATH:~/.local/bin
+                  export PATH=$PATH:$HOME/.local/bin
                   flake8 app --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
         '''
     }
@@ -79,7 +79,7 @@ pipeline {
              echo '📎 Running pylint...'
             sh '''
               pip install pylint || true
-              export PATH=$PATH:~/.local/bin
+              export PATH=$PATH:$HOME/.local/bin
               pylint app --exit-zero || true
                '''
     }
