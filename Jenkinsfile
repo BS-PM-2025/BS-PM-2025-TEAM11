@@ -64,16 +64,6 @@ pipeline {
         }
 
 
-        stage('Static Code Check: flake8') {
-          steps {
-            echo '🔍 Running flake8...'
-              sh '''
-                  pip install flake8 || true
-                  export PATH=$PATH:$HOME/.local/bin
-                  flake8 app --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
-        '''
-    }
-}
         stage('Static Code Check: pylint') {
           steps {
              echo '📎 Running pylint...'
