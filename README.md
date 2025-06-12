@@ -2,10 +2,10 @@
 
 ## 👥 Team Members:
 
-* **Alaa Mkawi** 
-* **Shahd Alnsasra** 
-* **Lena Abu Abid** 
-* **Bayan Abo Mdegam** 
+* **Alaa Mkawi- alaamk@ac.sce.ac.il** 
+* **Shahd Alnsasra- shahdal1@ac.sce.ac.il** 
+* **Lena Abu Abid- lenaab1@ac.sce.ac.il** 
+* **Bayan Abo Mdegam- bayanab1@ac.sce.ac.il** 
 
 ---
 
