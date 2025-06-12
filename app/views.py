@@ -1201,3 +1201,7 @@ from .models import Request
 def request_detail_view_secretary(request, request_id):
     request_obj = get_object_or_404(Request, id=request_id)
     return render(request, 'request_detail_view_secretary.html', {'request_obj': request_obj})
+
+
+from django.shortcuts import render
+

@@ -1903,3 +1903,29 @@ class StudentRequestFilterTests(TestCase):
         self.assertContains(response, self.in_progress_request.title)
         self.assertContains(response, self.accepted_request.title)
         self.assertContains(response, self.rejected_request.title)
+
+
+
+from django.test import TestCase
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+
+class ChatbotRenderTest(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.student_user = User.objects.create_user(
+            username='teststudent',
+            password='testpass123',
+            role='student',
+            phone='0501234567',
+            id_number='123456789',
+            department='מדעי המחשב'
+        )
+
+    def test_dashboard_contains_chatbot_ui(self):
+        self.client.login(username='teststudent', password='testpass123')
+        response = self.client.get(reverse('student_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'chat-container')
+        self.assertContains(response, 'chatbot-button')
+        self.assertContains(response, 'chat-log')

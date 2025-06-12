@@ -56,7 +56,6 @@ path('requests/<int:request_id>/academic/', views.request_detail_view_academic,n
 path('track_status/<int:request_id>/', views.track_status, name='track_status'),
 path('requests/<int:request_id>/secretary/', views.request_detail_view_secretary, name='request_detail_view_secretary'),
 
-
 ]
 
 if settings.DEBUG:
