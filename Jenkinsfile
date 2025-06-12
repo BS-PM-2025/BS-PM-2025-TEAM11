@@ -24,39 +24,66 @@ pipeline {
             }
         }
 
-
         stage('Run Unit + Integration Tests') {
             steps {
                 echo '🧪 Running Django tests with coverage...'
                 sh 'python3 -m pytest app/tests.py --ds=RequestFlow.settings --junitxml=test-results.xml || true'
-
-
             }
         }
 
         stage('Calculate Defect Density') {
-           steps {
-             echo '📊 Calculating Defect Density...'
-             sh '''
-            # Count test failures from pytest results
-            FAILURES=$(grep -o 'failures="\\?[0-9]\\+"' test-results.xml | grep -o '[0-9]')
+            steps {
+                echo '📊 Calculating Defect Density...'
+                sh '''
+                    # Count test failures from pytest results
+                    FAILURES=$(grep -o 'failures="\\?[0-9]\\+"' test-results.xml | grep -o '[0-9]')
 
-            # Count lines of code (excluding tests/migrations/venv)
-            LOC=$(find app -name "*.py" ! -path "*tests*" ! -path "*migrations*" ! -path "*venv*" | xargs wc -l | tail -n1 | awk '{print $1}')
+                    # Count lines of code (excluding tests/migrations/venv)
+                    LOC=$(find app -name "*.py" ! -path "*tests*" ! -path "*migrations*" ! -path "*venv*" | xargs wc -l | tail -n1 | awk '{print $1}')
 
-            if [ "$LOC" -gt 0 ]; then
-                DEFECT_DENSITY=$(echo "scale=2; $FAILURES / $LOC * 1000" | bc)
-            else
-                DEFECT_DENSITY=0
-            fi
+                    if [ "$LOC" -gt 0 ]; then
+                        DEFECT_DENSITY=$(echo "scale=2; $FAILURES / $LOC * 1000" | bc)
+                    else
+                        DEFECT_DENSITY=0
+                    fi
 
-            echo "📈 Defect Density: $DEFECT_DENSITY defects per 1000 LOC"
-        '''
-    }
-}
+                    echo "📈 Defect Density: $DEFECT_DENSITY defects per 1000 LOC"
+                '''
+            }
+        }
 
+        // 🔍 ניתוח כיסוי קוד עם pytest-cov
+        stage('Code Coverage') {
+            steps {
+                echo '📊 Measuring code coverage with pytest-cov...'
+                sh '''
+                    pip install pytest-cov || true
+                    python3 -m pytest app/tests.py --ds=RequestFlow.settings --cov=app --cov-report=term-missing --cov-report=xml || true
+                '''
+            }
+        }
 
+        // 🔍 ניתוח איכות קוד עם flake8
+        stage('Static Code Check: flake8') {
+            steps {
+                echo '🔍 Running flake8...'
+                sh '''
+                    pip install flake8 || true
+                    flake8 app --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+                '''
+            }
+        }
 
+        // 🔍 ניתוח איכות קוד עם pylint
+        stage('Static Code Check: pylint') {
+            steps {
+                echo '📎 Running pylint...'
+                sh '''
+                    pip install pylint || true
+                    pylint app --exit-zero || true
+                '''
+            }
+        }
     }
 
     post {
