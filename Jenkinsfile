@@ -52,7 +52,7 @@ pipeline {
             }
         }
 
-        // 🔍 ניתוח כיסוי קוד עם pytest-cov
+
         stage('Code Coverage') {
             steps {
                 echo '📊 Measuring code coverage with pytest-cov...'
@@ -63,27 +63,28 @@ pipeline {
             }
         }
 
-        // 🔍 ניתוח איכות קוד עם flake8
-        stage('Static Code Check: flake8') {
-            steps {
-                echo '🔍 Running flake8...'
-                sh '''
-                    pip install flake8 || true
-                    flake8 app --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
-                '''
-            }
-        }
 
-        // 🔍 ניתוח איכות קוד עם pylint
+        stage('Static Code Check: flake8') {
+          steps {
+            echo '🔍 Running flake8...'
+              sh '''
+                  pip install flake8 || true
+                  export PATH=$PATH:~/.local/bin
+                  flake8 app --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+        '''
+    }
+}
         stage('Static Code Check: pylint') {
-            steps {
-                echo '📎 Running pylint...'
-                sh '''
-                    pip install pylint || true
-                    pylint app --exit-zero || true
-                '''
-            }
-        }
+          steps {
+             echo '📎 Running pylint...'
+            sh '''
+              pip install pylint || true
+              export PATH=$PATH:~/.local/bin
+              pylint app --exit-zero || true
+               '''
+    }
+}
+
     }
 
     post {
