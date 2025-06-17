@@ -63,19 +63,8 @@ pipeline {
             }
         }
 
-
-        stage('Static Code Check: pylint') {
-          steps {
-             echo '📎 Running pylint...'
-            sh '''
-              pip install pylint || true
-              export PATH=$PATH:$HOME/.local/bin
-              pylint app --exit-zero || true
-               '''
     }
-}
 
-    }
 
     post {
         always {
